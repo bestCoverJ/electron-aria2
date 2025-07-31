@@ -9,7 +9,7 @@ AI驱动的基于 Electron + React + TypeScript 的现代化 Aria2 下载管理�
 
 ## 程序界面示例
 
-![程序界面示例](resources/markdown/demo.png)
+![程序界面示例](https://s21.ax1x.com/2025/07/31/pVtD8jf.png)
 
 ## 近期主要变更
 
