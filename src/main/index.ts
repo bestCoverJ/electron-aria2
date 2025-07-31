@@ -10,10 +10,11 @@ import {
   nativeTheme
 } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, rmSync } from 'fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { spawn, ChildProcess } from 'child_process'
 import { aria2, createHTTP, open, close, type Conn } from 'maria2'
+import * as crypto from 'crypto'
 import micaElectron from 'mica-electron'
 import icon from '../../resources/icon.png?asset'
 
@@ -45,9 +46,83 @@ class DownloadManager {
   private aria2Secret = 'electron-aria2'
   private lastDownloadPath = '' // 记住上次下载路径
   private removedDownloads: DownloadTask[] = [] // 存储已删除的下载任务
+  private downloadsDataPath = join(app.getPath('userData'), 'downloads.json') // 下载列表保存路径
 
   constructor() {
     this.setupApp()
+    this.loadPersistedDownloads()
+  }
+
+  // AES加密解密函数
+  private encryptAES(text: string, key: string = 'coverx'): string {
+    const algorithm = 'aes-256-cbc'
+    const keyHash = crypto.createHash('sha256').update(key).digest()
+    const iv = crypto.randomBytes(16)
+    const cipher = crypto.createCipheriv(algorithm, keyHash, iv)
+    let encrypted = cipher.update(text, 'utf8', 'hex')
+    encrypted += cipher.final('hex')
+    return iv.toString('hex') + ':' + encrypted
+  }
+
+  private decryptAES(encryptedText: string, key: string = 'coverx'): string {
+    try {
+      // 尝试新格式 (iv:encrypted)
+      if (encryptedText.includes(':')) {
+        const algorithm = 'aes-256-cbc'
+        const keyHash = crypto.createHash('sha256').update(key).digest()
+        const parts = encryptedText.split(':')
+        const iv = Buffer.from(parts[0], 'hex')
+        const encrypted = parts[1]
+        const decipher = crypto.createDecipheriv(algorithm, keyHash, iv)
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8')
+        decrypted += decipher.final('utf8')
+        return decrypted
+      } else {
+        // 兼容旧格式 (直接base64)
+        try {
+          const buffer = Buffer.from(encryptedText, 'base64')
+          const algorithm = 'aes-256-cbc'
+          const keyBuffer = Buffer.from(key.padEnd(32, '0').substring(0, 32))
+          const iv = buffer.slice(0, 16)
+          const encrypted = buffer.slice(16)
+          const decipher = crypto.createDecipheriv(algorithm, keyBuffer, iv)
+          let decrypted = decipher.update(encrypted, undefined, 'utf8')
+          decrypted += decipher.final('utf8')
+          return decrypted
+        } catch {
+          // 如果都失败，返回原文本
+          return encryptedText
+        }
+      }
+    } catch (error) {
+      console.error('解密失败:', error)
+      throw error
+    }
+  }
+
+  // 持久化相关方法
+  private loadPersistedDownloads(): void {
+    try {
+      if (existsSync(this.downloadsDataPath)) {
+        const data = readFileSync(this.downloadsDataPath, 'utf8')
+        const parsed = JSON.parse(data)
+        this.removedDownloads = parsed.removedDownloads || []
+      }
+    } catch (error) {
+      console.error('加载持久化下载数据失败:', error)
+    }
+  }
+
+  private savePersistedDownloads(): void {
+    try {
+      const data = {
+        removedDownloads: this.removedDownloads,
+        lastDownloadPath: this.lastDownloadPath
+      }
+      writeFileSync(this.downloadsDataPath, JSON.stringify(data, null, 2))
+    } catch (error) {
+      console.error('保存持久化下载数据失败:', error)
+    }
   }
 
   private setupApp(): void {
@@ -81,11 +156,35 @@ class DownloadManager {
   }
 
   private handleDeepLink(url: string): void {
+    console.log('处理深链接:', url)
     const urlObj = new URL(url)
     if (urlObj.protocol === 'coverx:' && urlObj.hostname === 'download') {
-      const downloadUrl = urlObj.searchParams.get('url')
-      if (downloadUrl && this.mainWindow) {
-        this.mainWindow.webContents.send('add-download-from-link', downloadUrl)
+      const encryptedUrl = urlObj.searchParams.get('url')
+      if (encryptedUrl && this.mainWindow) {
+        try {
+          console.log('尝试解密URL:', encryptedUrl)
+          // 尝试解密URL
+          const decryptedUrl = this.decryptAES(encryptedUrl)
+          console.log('解密成功:', decryptedUrl)
+          this.mainWindow.webContents.send('add-download-from-link', decryptedUrl)
+        } catch (error) {
+          console.error('解密URL失败:', error)
+          // 如果解密失败，尝试直接使用原始URL（兼容性考虑）
+          this.mainWindow.webContents.send('add-download-from-link', encryptedUrl)
+        }
+      }
+    } else if (url.startsWith('coverx://')) {
+      // 处理简化的coverx://链接格式
+      const encryptedPart = url.replace('coverx://', '')
+      if (encryptedPart && this.mainWindow) {
+        try {
+          console.log('尝试解密简化格式:', encryptedPart)
+          const decryptedUrl = this.decryptAES(encryptedPart)
+          console.log('解密成功:', decryptedUrl)
+          this.mainWindow.webContents.send('add-download-from-link', decryptedUrl)
+        } catch (error) {
+          console.error('解密简化格式失败:', error)
+        }
       }
     }
   }
@@ -131,7 +230,7 @@ class DownloadManager {
         this.connectToAria2()
           .then(() => resolve())
           .catch(reject)
-      }, 2000)
+      }, 3000) // 增加到3秒
     })
   }
 
@@ -140,7 +239,7 @@ class DownloadManager {
     const rpcUrl = `http://localhost:${this.aria2Port}/jsonrpc` as const
     this.aria2Connection = createHTTP(rpcUrl, {
       secret: this.aria2Secret,
-      timeout: 5000
+      timeout: 10000 // 增加到10秒
     })
 
     try {
@@ -161,6 +260,7 @@ class DownloadManager {
         this.updateDownloadProgress()
       }, 1000)
     } catch (error) {
+      console.error('连接Aria2详细错误:', error)
       throw new Error(`连接Aria2失败: ${error}`)
     }
   }
@@ -368,9 +468,38 @@ class DownloadManager {
       if (!this.aria2Conn) throw new Error('Aria2 未连接')
 
       try {
+        // 检查是否已存在相同URL的下载任务
+        const activeDownloads = await aria2.tellActive(this.aria2Conn)
+        const waitingDownloads = await aria2.tellWaiting(this.aria2Conn, 0, 100)
+        const allRunningDownloads = [...activeDownloads, ...waitingDownloads]
+
+        const duplicateDownload = allRunningDownloads.find((download) => {
+          return (
+            download.files &&
+            download.files.some((file) => file.uris && file.uris.some((uri) => uri.uri === url))
+          )
+        })
+
+        if (duplicateDownload) {
+          // 询问用户是否继续添加重复任务
+          const response = await dialog.showMessageBox(this.mainWindow!, {
+            type: 'question',
+            buttons: ['取消', '继续添加'],
+            defaultId: 0,
+            message: '重复下载',
+            detail: '该下载任务已存在，是否仍要继续添加？'
+          })
+
+          if (response.response === 0) {
+            return { success: false, error: '用户取消添加重复任务' }
+          }
+        }
+
+        console.log('添加下载任务:', { url, options })
         const gid = await aria2.addUri(this.aria2Conn, [url], options || {})
         return { success: true, gid }
       } catch (error) {
+        console.error('添加下载失败:', error)
         return { success: false, error: String(error) }
       }
     })
@@ -434,13 +563,30 @@ class DownloadManager {
       try {
         const download = await aria2.tellStatus(this.aria2Conn, gid)
 
+        // 如果任务正在运行，先停止它
+        if (download.status === 'active' || download.status === 'waiting' || download.status === 'paused') {
+          try {
+            await aria2.remove(this.aria2Conn, gid)
+          } catch (stopError) {
+            console.log('停止下载失败，继续删除操作:', stopError)
+          }
+        }
+
         // 添加到已删除列表
         this.removedDownloads.push({
           ...download,
           status: 'removed'
         })
 
-        await aria2.removeDownloadResult(this.aria2Conn, gid)
+        // 保存到持久化存储
+        this.savePersistedDownloads()
+
+        // 从下载结果中移除
+        try {
+          await aria2.removeDownloadResult(this.aria2Conn, gid)
+        } catch (removeError) {
+          console.log('从结果中移除失败，可能任务还在运行:', removeError)
+        }
 
         if (deleteFiles && download.files) {
           for (const file of download.files) {
@@ -452,7 +598,8 @@ class DownloadManager {
 
         return { success: true }
       } catch (error) {
-        return { success: false, error: String(error) }
+        console.error('删除下载失败:', error)
+        return { success: false, error: `删除失败: ${error instanceof Error ? error.message : String(error)}` }
       }
     })
 
@@ -509,6 +656,11 @@ class DownloadManager {
       }
     })
 
+    // 获取已删除的下载任务
+    ipcMain.handle('get-removed-downloads', async () => {
+      return { success: true, removedDownloads: this.removedDownloads }
+    })
+
     // 获取上次下载路径
     ipcMain.handle('get-last-download-path', async () => {
       return this.lastDownloadPath || join(app.getPath('downloads'), 'aria2-downloads')
@@ -537,12 +689,55 @@ class DownloadManager {
       return result
     })
 
-    // 窗口控制
-    ipcMain.handle('window-minimize', () => {
+    // 文件操作
+    ipcMain.handle('select-file', async (_, gid: string) => {
+      if (!this.aria2Conn) throw new Error('Aria2 未连接')
+
+      try {
+        const download = await aria2.tellStatus(this.aria2Conn, gid)
+        if (download.files && download.files.length > 0 && existsSync(download.files[0].path)) {
+          shell.showItemInFolder(download.files[0].path)
+        }
+      } catch (error) {
+        console.error('选择文件失败:', error)
+      }
+    })
+
+    ipcMain.handle('open-file', async (_, gid: string) => {
+      if (!this.aria2Conn) throw new Error('Aria2 未连接')
+
+      try {
+        const download = await aria2.tellStatus(this.aria2Conn, gid)
+        if (download.files && download.files.length > 0 && existsSync(download.files[0].path)) {
+          shell.openPath(download.files[0].path)
+        }
+      } catch (error) {
+        console.error('打开文件失败:', error)
+      }
+    })
+
+    ipcMain.handle('open-folder', async (_, gid: string) => {
+      if (!this.aria2Conn) throw new Error('Aria2 未连接')
+
+      try {
+        const download = await aria2.tellStatus(this.aria2Conn, gid)
+        if (download.files && download.files.length > 0) {
+          const folderPath = download.files[0].path.substring(0, download.files[0].path.lastIndexOf('\\'))
+          if (existsSync(folderPath)) {
+            shell.openPath(folderPath)
+          }
+        }
+      } catch (error) {
+        console.error('打开文件夹失败:', error)
+      }
+    })
+
+        // 窗口控制
+    ipcMain.handle('minimize-window', () => {
       this.mainWindow?.minimize()
     })
 
-    ipcMain.handle('window-maximize', () => {
+    ipcMain.handle('maximize-window', () => {
       if (this.mainWindow?.isMaximized()) {
         this.mainWindow.unmaximize()
       } else {
@@ -550,12 +745,37 @@ class DownloadManager {
       }
     })
 
-    ipcMain.handle('window-close', () => {
+    ipcMain.handle('close-window', () => {
       this.mainWindow?.close()
     })
 
-    // 测试IPC
-    ipcMain.on('ping', () => console.log('pong'))
+    // 创建coverx://链接
+    ipcMain.handle('create-coverx-link', async (_, originalUrl: string) => {
+      try {
+        // 提取URL的主要部分（去掉协议）
+        const urlWithoutProtocol = originalUrl.replace(/^https?:\/\//, '')
+        const encryptedUrl = this.encryptAES(urlWithoutProtocol)
+        return { success: true, coverxLink: `coverx://${encryptedUrl}` }
+      } catch (error) {
+        return { success: false, error: String(error) }
+      }
+    })
+
+    // 解析coverx://链接
+    ipcMain.handle('parse-coverx-link', async (_, coverxUrl: string) => {
+      try {
+        if (coverxUrl.startsWith('coverx://')) {
+          const encryptedPart = coverxUrl.replace('coverx://', '')
+          const decryptedUrl = this.decryptAES(encryptedPart)
+          // 添加回协议前缀
+          const fullUrl = decryptedUrl.startsWith('http') ? decryptedUrl : `https://${decryptedUrl}`
+          return { success: true, originalUrl: fullUrl }
+        }
+        return { success: false, error: '不是有效的coverx链接' }
+      } catch (error) {
+        return { success: false, error: String(error) }
+      }
+    })
   }
 
   async initialize(): Promise<void> {

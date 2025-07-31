@@ -8,7 +8,7 @@ interface DownloadOptions {
 
 interface DownloadTask {
   gid: string
-  status: string
+  status: 'active' | 'waiting' | 'paused' | 'error' | 'complete' | 'removed'
   totalLength: string
   completedLength: string
   downloadSpeed: string
@@ -41,6 +41,11 @@ interface DownloadAPI {
   showOpenDialog: () => Promise<{ canceled: boolean; filePaths: string[] }>
   showFolderDialog: () => Promise<{ canceled: boolean; filePaths: string[] }>
 
+  // 文件操作
+  selectFile: (gid: string) => Promise<void>
+  openFile: (gid: string) => Promise<void>
+  openFolder: (gid: string) => Promise<void>
+
   // 窗口控制
   windowMinimize: () => Promise<void>
   windowMaximize: () => Promise<void>
@@ -54,6 +59,10 @@ interface DownloadAPI {
   onDownloadStopped: (callback: (gid: string) => void) => void
   onDownloadsUpdated: (callback: (downloads: DownloadTask[]) => void) => void
   onAddDownloadFromLink: (callback: (url: string) => void) => void
+
+  // coverx链接处理
+  createCoverxLink: (originalUrl: string) => Promise<{ success: boolean; coverxLink?: string; error?: string }>
+  parseCoverxLink: (coverxUrl: string) => Promise<{ success: boolean; originalUrl?: string; error?: string }>
 
   // 移除监听器
   removeAllListeners: (channel: string) => void

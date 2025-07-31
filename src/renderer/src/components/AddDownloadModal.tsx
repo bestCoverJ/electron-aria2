@@ -21,6 +21,8 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
   const [downloadPath, setDownloadPath] = useState('')
   const [fileName, setFileName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showFileNameInput, setShowFileNameInput] = useState(false)
+  const [tempFileName, setTempFileName] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 自动提取文件名
@@ -38,6 +40,25 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
       // URL解析失败，忽略
     }
     return ''
+  }
+
+  // 检测并处理coverx://链接
+  const processCoverxUrl = async (inputUrl: string): Promise<string> => {
+    if (inputUrl.startsWith('coverx://')) {
+      try {
+        const result = await window.downloadAPI.parseCoverxLink(inputUrl)
+        if (result.success) {
+          return result.originalUrl
+        } else {
+          console.error('解析coverx链接失败:', result.error)
+          return inputUrl // 返回原始URL
+        }
+      } catch (error) {
+        console.error('处理coverx链接时出错:', error)
+        return inputUrl
+      }
+    }
+    return inputUrl
   }
 
   // 加载上次的下载路径
@@ -58,30 +79,103 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
     }
   }, [isOpen])
 
-  // URL变化时自动提取文件名
+    // 监听URL变化，自动处理coverx链接和提取文件名
   useEffect(() => {
-    if (url) {
-      const extractedFilename = extractFilename(url)
-      if (extractedFilename) {
-        setFileName(extractedFilename)
+    const handleUrlChange = async (): Promise<void> => {
+      if (!url) {
+        setFileName('')
+        return
+      }
+
+      let processedUrl = url
+
+      // 如果是coverx链接，先解密
+      if (url.startsWith('coverx://')) {
+        try {
+          const result = await window.downloadAPI.parseCoverxLink(url)
+          if (result.success && result.originalUrl) {
+            processedUrl = result.originalUrl
+          }
+        } catch (error) {
+          console.error('处理coverx链接失败:', error)
+        }
+      }
+
+      // 自动提取文件名
+      const extractedName = extractFilename(processedUrl)
+      if (extractedName) {
+        setFileName(extractedName)
       }
     }
+
+    const timeoutId = setTimeout(handleUrlChange, 500) // 防抖
+    return () => clearTimeout(timeoutId)
   }, [url])
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
-    if (!url.trim()) return
+    if (isLoading) return // 防抖动
+
+    if (!url.trim()) {
+      alert('请输入下载链接')
+      return
+    }
+
+    // 验证下载路径
+    if (!downloadPath.trim()) {
+      alert('请选择下载目录')
+      return
+    }
 
     setIsLoading(true)
     try {
-      const options: any = {}
-      if (downloadPath) options.dir = downloadPath
-      if (fileName) options.out = fileName
+      // 处理coverx://链接
+      const processedUrl = await processCoverxUrl(url.trim())
 
-      await onAddDownload(url.trim(), options)
-      handleClose()
+      // 验证处理后的URL
+      if (!processedUrl) {
+        alert('链接处理失败，请检查链接是否正确')
+        setIsLoading(false)
+        return
+      }
+
+      // 如果没有文件名，尝试自动提取
+      let finalFileName = fileName.trim()
+      if (!finalFileName) {
+        finalFileName = extractFilename(processedUrl)
+        if (!finalFileName) {
+          // 如果还是没有文件名，使用URL的最后部分作为默认文件名
+          try {
+            const urlObj = new URL(processedUrl)
+            const pathParts = urlObj.pathname.split('/')
+            const lastPart = pathParts[pathParts.length - 1]
+            finalFileName = lastPart || 'download_file'
+          } catch {
+            finalFileName = 'download_file'
+          }
+        }
+      }
+
+      const options: Record<string, unknown> = {}
+      if (downloadPath) {
+        options.dir = downloadPath
+      }
+      if (finalFileName) {
+        options.out = finalFileName
+      }
+
+      console.log('添加下载:', { url: processedUrl, options })
+      const result = await window.downloadAPI.addDownload(processedUrl, options)
+      if (result.success) {
+        onAddDownload(processedUrl, options)
+        handleClose()
+      } else {
+        console.error('添加下载失败:', result.error)
+        alert(`添加下载失败: ${result.error}`)
+      }
     } catch (error) {
-      console.error('添加下载失败:', error)
+      console.error('添加下载出错:', error)
+      alert(`添加下载出错: ${String(error)}`)
     } finally {
       setIsLoading(false)
     }
@@ -89,7 +183,7 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file || isLoading) return
 
     setIsLoading(true)
     try {
@@ -143,7 +237,7 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-25" />
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -164,7 +258,7 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
                   </Dialog.Title>
                   <button
                     onClick={handleClose}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
                   >
                     <X className="w-6 h-6" />
                   </button>
@@ -205,7 +299,7 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
                       <button
                         type="button"
                         onClick={selectFolder}
-                        className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                       >
                         <Folder className={`w-5 h-5 ${isDark ? 'text-gray-300' : 'text-gray-500'}`} />
                       </button>
@@ -229,7 +323,7 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     >
                       <File className="w-4 h-4" />
                       <span>选择种子文件</span>
@@ -239,14 +333,14 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
                       <button
                         type="button"
                         onClick={handleClose}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                       >
                         取消
                       </button>
                       <button
                         type="submit"
                         disabled={!url.trim() || isLoading}
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {isLoading ? '添加中...' : '添加下载'}
                       </button>

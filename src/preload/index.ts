@@ -49,6 +49,10 @@ const downloadAPI = {
     ipcRenderer.on('add-download-from-link', (_, url) => callback(url))
   },
 
+  // coverx链接处理
+  createCoverxLink: (originalUrl: string) => ipcRenderer.invoke('create-coverx-link', originalUrl),
+  parseCoverxLink: (coverxUrl: string) => ipcRenderer.invoke('parse-coverx-link', coverxUrl),
+
   // 移除监听器
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel)

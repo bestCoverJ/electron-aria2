@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react'
-import { Plus, RefreshCw } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { RefreshCw } from 'lucide-react'
 import TitleBar from './components/TitleBar'
-import DownloadItem from './components/DownloadItem'
+import Sidebar from './components/Sidebar'
+import Header from './components/Header'
+import DownloadItemNew from './components/DownloadItemNew'
 import AddDownloadModal from './components/AddDownloadModal'
+import CoverxGenerator from './components/CoverxGenerator'
 
 interface DownloadTask {
   gid: string
-  status: string
+  status: 'active' | 'waiting' | 'paused' | 'error' | 'complete' | 'removed'
   totalLength: string
   completedLength: string
   downloadSpeed: string
@@ -23,11 +26,14 @@ function App(): React.JSX.Element {
   const [downloads, setDownloads] = useState<DownloadTask[]>([])
   const [removedDownloads, setRemovedDownloads] = useState<DownloadTask[]>([])
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isCoverxGeneratorOpen, setIsCoverxGeneratorOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [filter, setFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [theme, setTheme] = useState<'dark' | 'light'>(
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   )
+  const [lastClipboardCheck, setLastClipboardCheck] = useState('')
 
   useEffect(() => {
     // 主题切换监听
@@ -110,22 +116,13 @@ function App(): React.JSX.Element {
   const checkClipboardForDownloadLinks = async (): Promise<void> => {
     try {
       const text = await navigator.clipboard.readText()
-      if (isDownloadableUrl(text)) {
+      if (text && text !== lastClipboardCheck && isDownloadableUrl(text)) {
+        setLastClipboardCheck(text)
         const shouldOpen = confirm(
           `检测到剪切板中有下载链接：\n${text.substring(0, 100)}${text.length > 100 ? '...' : ''}\n\n是否立即添加下载任务？`
         )
         if (shouldOpen) {
-          setIsAddModalOpen(true)
-          // 延迟设置URL，确保模态框已打开
-          setTimeout(() => {
-            const urlInput = document.querySelector(
-              'textarea[placeholder*="下载链接"]'
-            ) as HTMLTextAreaElement
-            if (urlInput) {
-              urlInput.value = text
-              urlInput.dispatchEvent(new Event('input', { bubbles: true }))
-            }
-          }, 100)
+          handleAddDownload(text)
         }
       }
     } catch (error) {
@@ -136,6 +133,11 @@ function App(): React.JSX.Element {
 
   // 判断是否为可下载的URL
   const isDownloadableUrl = (text: string): boolean => {
+    // 支持coverx://协议
+    if (text.startsWith('coverx://')) {
+      return true
+    }
+
     try {
       const url = new URL(text)
       const pathname = url.pathname.toLowerCase()
@@ -187,6 +189,19 @@ function App(): React.JSX.Element {
     } catch {
       return text.startsWith('magnet:')
     }
+  }
+
+  // 判断下载源类型
+  const getSourceType = (task: DownloadTask): 'normal' | 'torrent' | 'coverx' => {
+    // 检查文件名是否为.torrent结尾
+    const fileName = getFileName(task).toLowerCase()
+    if (fileName.endsWith('.torrent')) {
+      return 'torrent'
+    }
+
+    // 这里可以根据其他条件判断是否为coverx协议
+    // 暂时都返回normal
+    return 'normal'
   }
 
   const handleAddDownload = async (url: string, options?: any): Promise<void> => {
@@ -295,175 +310,161 @@ function App(): React.JSX.Element {
     }
   }
 
-  const filteredDownloads =
-    filter === 'removed'
-      ? removedDownloads
-      : downloads.filter((download) => {
-          switch (filter) {
-            case 'active':
-              return download.status === 'active'
-            case 'paused':
-              return download.status === 'paused'
-            case 'completed':
-              return download.status === 'complete' || download.status === 'error'
-            default:
-              return true
-          }
-        })
+  const filteredDownloads = useMemo(() => {
+    let tasks = filter === 'removed' ? removedDownloads : downloads
 
-  const getFilterCount = (status: string): number => {
-    if (status === 'all') return downloads.length
-    return downloads.filter((d) => d.status === status).length
+    // 按状态筛选
+    if (filter !== 'all' && filter !== 'removed') {
+      tasks = tasks.filter((d) => {
+        switch (filter) {
+          case 'active':
+            return d.status === 'active'
+          case 'waiting':
+            return d.status === 'waiting'
+          case 'complete':
+            return d.status === 'complete'
+          case 'error':
+            return d.status === 'error'
+          default:
+            return true
+        }
+      })
+    }
+
+    // 按搜索查询筛选
+    if (searchQuery) {
+      tasks = tasks.filter((d) =>
+        d.files[0]?.path.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    return tasks
+  }, [downloads, removedDownloads, filter, searchQuery])
+
+  const downloadCounts = useMemo(() => {
+    return {
+      all: downloads.length,
+      active: downloads.filter((d) => d.status === 'active').length,
+      waiting: downloads.filter((d) => d.status === 'waiting').length,
+      complete: downloads.filter((d) => d.status === 'complete').length,
+      error: downloads.filter((d) => d.status === 'error').length,
+      removed: removedDownloads.length
+    }
+  }, [downloads, removedDownloads])
+
+  const getFileName = (task: DownloadTask): string => {
+    // 首先检查aria2任务中的文件信息
+    if (task.files && task.files.length > 0) {
+      const path = task.files[0].path
+      if (path && path.trim() !== '') {
+        // 提取文件名，支持Windows和Unix路径
+        const fileName = path.split('/').pop() || path.split('\\').pop() || ''
+        if (fileName && fileName.trim() !== '') {
+          return fileName
+        }
+      }
+    }
+
+    // 最后的备选方案：使用任务GID
+    return `下载任务_${task.gid.slice(-8)}`
   }
 
   return (
-    <div
-      className={`flex flex-col h-screen ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}
-      style={{
-        background: theme === 'dark' ? 'transparent' : 'transparent'
-      }}
-    >
-      {/* 自定义标题栏 */}
+    <div className={`h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 ${theme}`}>
       <TitleBar />
+      <div className="flex h-[calc(100vh-2rem)]">
+        {/* 左侧边栏 */}
+        <Sidebar
+          onFilterChange={setFilter}
+          activeFilter={filter}
+          onNewTaskClick={() => setIsAddModalOpen(true)}
+          counts={downloadCounts}
+        />
 
-      {/* 主内容区域 */}
-      <div className="flex-1 flex">
-        {/* 侧边栏 */}
-        <div
-          className={`w-64 border-r p-4 flex flex-col gap-4 ${
-            theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-          }`}
-          style={{
-            // background: theme === 'dark' ? 'rgba(17, 24, 39, 0.75)' : 'rgba(255, 255, 255, 0.75)',
-            backdropFilter: 'blur(16px)'
-          }}
-        >
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors mb-4"
-          >
-            <Plus className="w-5 h-5" />
-            <span>新建任务</span>
-          </button>
-
-          <div className="space-y-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                filter === 'all' ? 'bg-blue-600 text-white' : 'hover:bg-gray-800 text-gray-300'
-              }`}
-            >
-              全部 ({getFilterCount('all')})
-            </button>
-            <button
-              onClick={() => setFilter('active')}
-              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                filter === 'active' ? 'bg-blue-600 text-white' : 'hover:bg-gray-800 text-gray-300'
-              }`}
-            >
-              下载中 ({getFilterCount('active')})
-            </button>
-            <button
-              onClick={() => setFilter('paused')}
-              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                filter === 'paused' ? 'bg-blue-600 text-white' : 'hover:bg-gray-800 text-gray-300'
-              }`}
-            >
-              已暂停 ({getFilterCount('paused')})
-            </button>
-            <button
-              onClick={() => setFilter('completed')}
-              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                filter === 'completed'
-                  ? 'bg-blue-600 text-white'
-                  : 'hover:bg-gray-800 text-gray-300'
-              }`}
-            >
-              已完成 ({getFilterCount('complete')})
-            </button>
-            <button
-              onClick={() => setFilter('removed')}
-              className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                filter === 'removed' ? 'bg-blue-600 text-white' : 'hover:bg-gray-800 text-gray-300'
-              }`}
-            >
-              已删除 ({removedDownloads.length})
-            </button>
-          </div>
-        </div>
-
-        {/* 主内容区 */}
-        <div className="flex-1 flex flex-col">
-          {/* 工具栏 */}
-          <div
-            className={`px-6 py-4 border-b ${
-              theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-            }`}
-            style={{
-              background: theme === 'dark' ? 'rgba(31, 41, 55, 0.6)' : 'rgba(255, 255, 255, 0.6)',
-              backdropFilter: 'blur(16px)'
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <h1
-                className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}
-              >
-                下载管理器
-              </h1>
-              <button
-                onClick={() => {
-                  loadDownloads()
-                  loadRemovedDownloads()
-                }}
-                disabled={isLoading}
-                className={`flex items-center space-x-2 px-3 py-2 text-sm ${theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-900'} disabled:opacity-50`}
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span>刷新</span>
-              </button>
-            </div>
-          </div>
+        {/* 右侧主内容区 */}
+        <main className="flex-1 flex flex-col overflow-hidden bg-white/60 backdrop-blur-xl border-l border-white/20">
+          {/* 顶部搜索栏 */}
+          <Header onSearchChange={setSearchQuery} />
 
           {/* 下载列表 */}
-          <div
-            className="flex-1 overflow-y-auto p-6"
-            style={{
-              background: theme === 'dark' ? 'rgba(17, 24, 39, 0.4)' : 'rgba(243, 246, 251, 0.4)',
-              backdropFilter: 'blur(20px)'
-            }}
-          >
-            {filteredDownloads.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400">
-                  {downloads.length === 0
-                    ? '暂无下载任务'
-                    : `暂无${filter === 'all' ? '' : '符合条件的'}下载任务`}
-                </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="ml-2 text-slate-600">加载中...</span>
+              </div>
+            ) : filteredDownloads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                <div className="text-lg mb-2 text-slate-700">暂无下载任务</div>
                 <button
                   onClick={() => setIsAddModalOpen(true)}
-                  className="mt-4 text-blue-400 hover:text-blue-300"
+                  className="text-blue-500 hover:text-blue-600 transition-colors font-medium"
                 >
-                  添加新的下载任务
+                  点击添加新的下载任务
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredDownloads.map((download) => (
-                  <DownloadItem
-                    key={download.gid}
-                    download={download}
-                    onPause={handlePauseDownload}
-                    onResume={handleResumeDownload}
-                    onStop={handleStopDownload}
-                    onRemove={handleRemoveDownload}
-                    onDelete={handleDeleteDownload}
-                    onRestart={handleRestartDownload}
+              <div>
+                {/* 移除额外的间距，因为DownloadItemNew已经有了margin */}
+                {filteredDownloads.map((task) => (
+                  <DownloadItemNew
+                    key={task.gid}
+                    task={task}
+                    fileName={getFileName(task)}
+                    sourceType={getSourceType(task)}
+                    onPause={() => handlePauseDownload(task.gid)}
+                    onResume={() => handleResumeDownload(task.gid)}
+                    onRemove={() => handleRemoveDownload(task.gid)}
+                    onSelectFile={() => {
+                      // 在文件管理器中显示文件
+                      if (window.downloadAPI?.selectFile) {
+                        window.downloadAPI.selectFile(task.gid)
+                      }
+                    }}
+                    onOpenFile={() => {
+                      // 打开文件
+                      if (window.downloadAPI?.openFile) {
+                        window.downloadAPI.openFile(task.gid)
+                      }
+                    }}
+                    onOpenFolder={() => {
+                      // 打开文件夹
+                      if (window.downloadAPI?.openFolder) {
+                        window.downloadAPI.openFolder(task.gid)
+                      }
+                    }}
                   />
                 ))}
               </div>
             )}
           </div>
-        </div>
+
+          {/* 底部统计信息 */}
+          {filteredDownloads.length > 0 && (
+            <div className="border-t border-slate-200/50 p-4 bg-white/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-sm text-slate-600">
+                <div className="flex items-center space-x-4">
+                  <span>总计: {downloadCounts.all} 个任务</span>
+                  <span>下载中: {downloadCounts.active}</span>
+                  <span>已完成: {downloadCounts.complete}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-32 h-1 bg-slate-300 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full transition-all"
+                      style={{
+                        width: downloadCounts.all > 0
+                          ? `${(downloadCounts.complete / downloadCounts.all) * 100}%`
+                          : '0%'
+                      }}
+                    />
+                  </div>
+                  <span className="text-slate-700 font-medium">{downloadCounts.all > 0 ? Math.round((downloadCounts.complete / downloadCounts.all) * 100) : 0}%</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
 
       {/* 添加下载模态框 */}
@@ -472,6 +473,12 @@ function App(): React.JSX.Element {
         onClose={() => setIsAddModalOpen(false)}
         onAddDownload={handleAddDownload}
         onAddTorrent={handleAddTorrent}
+      />
+
+      {/* Coverx链接生成器 */}
+      <CoverxGenerator
+        isOpen={isCoverxGeneratorOpen}
+        onClose={() => setIsCoverxGeneratorOpen(false)}
       />
     </div>
   )
