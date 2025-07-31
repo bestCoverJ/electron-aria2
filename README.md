@@ -1,7 +1,15 @@
+
 # Electron Aria2
+
+
+
 
 AI驱动的基于 Electron + React + TypeScript 的现代化 Aria2 下载管理器，支持 Windows 11 Mica 效果、深色/浅色主题自动切换、系统通知、剪切板智能识别下载链接、任务分类管理等。
 
+
+## 程序界面示例
+
+![程序界面示例](resources/markdown/demo.png)
 
 ## 近期主要变更
 

@@ -373,6 +373,7 @@ class DownloadManager {
       height: 800,
       minWidth: 800,
       minHeight: 600,
+      autoHideMenuBar: true,
       show: false,
       frame: false, // 无边框窗口
       titleBarStyle: 'hidden',
@@ -390,7 +391,7 @@ class DownloadManager {
 
     if (IS_WINDOWS_11) {
       this.mainWindow.setAutoTheme()
-      this.mainWindow.setMicaAcrylicEffect()
+      this.mainWindow.setMicaTabbedEffect()
     } else if (WIN10) {
       this.mainWindow.setAcrylic()
     }

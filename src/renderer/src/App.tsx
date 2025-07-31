@@ -370,7 +370,8 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <div className={`h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 ${theme}`}>
+    //  bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 ${theme}
+    <div className={`h-screen w-screen overflow-hidden bg-transparent`}>
       <TitleBar />
       <div className="flex h-[calc(100vh-2rem)]">
         {/* 左侧边栏 */}
@@ -382,12 +383,12 @@ function App(): React.JSX.Element {
         />
 
         {/* 右侧主内容区 */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-white/60 backdrop-blur-xl border-l border-white/20">
+        <main className="flex-1 flex flex-col rounded-tl overflow-hidden bg-white/60 backdrop-blur-xl border-l border-white/20">
           {/* 顶部搜索栏 */}
           <Header onSearchChange={setSearchQuery} />
 
           {/* 下载列表 */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 ">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
@@ -404,7 +405,7 @@ function App(): React.JSX.Element {
                 </button>
               </div>
             ) : (
-              <div>
+              <div className="flex flex-col gap-2">
                 {/* 移除额外的间距，因为DownloadItemNew已经有了margin */}
                 {filteredDownloads.map((task) => (
                   <DownloadItemNew
@@ -442,24 +443,30 @@ function App(): React.JSX.Element {
           {/* 底部统计信息 */}
           {filteredDownloads.length > 0 && (
             <div className="border-t border-slate-200/50 p-4 bg-white/40 backdrop-blur-sm">
-              <div className="flex items-center justify-between text-sm text-slate-600">
-                <div className="flex items-center space-x-4">
+              <div className="flex items-center justify-between text-sm text-slate-600 gap-2">
+                <div className="flex items-center space-x-4 gap-4">
                   <span>总计: {downloadCounts.all} 个任务</span>
                   <span>下载中: {downloadCounts.active}</span>
                   <span>已完成: {downloadCounts.complete}</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 gap-4">
                   <div className="w-32 h-1 bg-slate-300 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full transition-all"
                       style={{
-                        width: downloadCounts.all > 0
-                          ? `${(downloadCounts.complete / downloadCounts.all) * 100}%`
-                          : '0%'
+                        width:
+                          downloadCounts.all > 0
+                            ? `${(downloadCounts.complete / downloadCounts.all) * 100}%`
+                            : '0%'
                       }}
                     />
                   </div>
-                  <span className="text-slate-700 font-medium">{downloadCounts.all > 0 ? Math.round((downloadCounts.complete / downloadCounts.all) * 100) : 0}%</span>
+                  <span className="text-slate-700 font-medium">
+                    {downloadCounts.all > 0
+                      ? Math.round((downloadCounts.complete / downloadCounts.all) * 100)
+                      : 0}
+                    %
+                  </span>
                 </div>
               </div>
             </div>

@@ -32,19 +32,20 @@ const Sidebar: React.FC<SidebarProps> = ({
   ]
 
   return (
-    <aside className="w-64 bg-gradient-to-b from-blue-50 via-blue-100 to-blue-200 text-slate-700 flex flex-col border-r border-blue-200/50">
+    // bg-gradient-to-b from-blue-50 via-blue-100 to-blue-200
+    <aside className="w-64 bg-transparent text-slate-700 flex flex-col border-r border-blue-200/50">
       {/* Logo区域 */}
-      <div className="p-6 pb-4">
-        <div className="flex items-center space-x-3">
+      {/* <div className="p-6 pb-4">
+        <div className="flex items-center space-x-3 gap-2">
           <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
             <Download className="w-5 h-5 text-blue-600" />
           </div>
           <span className="text-lg font-semibold text-slate-800">Downloader</span>
         </div>
-      </div>
+      </div> */}
 
       {/* 新建任务按钮 */}
-      <div className="px-6 pb-6">
+      <div className="px-6 py-6">
         <Button
           onClick={onNewTaskClick}
           className="w-full bg-blue-500 hover:bg-blue-600 text-white border-0 shadow-lg"

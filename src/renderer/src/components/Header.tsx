@@ -9,7 +9,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onSearchChange }) => {
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-white/40 backdrop-blur-md border-b border-slate-200/50">
-      <div className="flex items-center space-x-6 flex-1">
+      <div className="flex items-center space-x-6 flex-1 gap-4">
         <h1 className="text-xl font-semibold text-slate-800">下载列表</h1>
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />

@@ -110,7 +110,7 @@ const DownloadItemNew: React.FC<DownloadItemProps> = ({
 
   return (
     <div
-      className={`flex items-center p-4 bg-white rounded-xl border border-slate-100 transition-all duration-200 mb-3 cursor-move select-none ${
+      className={`flex items-center p-4 bg-white rounded-xl border border-slate-100 transition-all duration-200 mb-3 cursor-move select-none gap-4 ${
         task.status === 'error'
           ? 'hover:border-red-200 hover:shadow-sm hover:bg-red-50/30'
           : 'hover:border-slate-200 hover:shadow-sm hover:bg-slate-50/30'

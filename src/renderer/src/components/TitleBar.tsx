@@ -23,15 +23,12 @@ const TitleBar: React.FC<TitleBarProps> = ({ title = 'Electron Aria2 下载器' 
 
   return (
     <div
-      className={`flex items-center justify-between h-[41px] px-4 select-none border-b ${
-        isDark
-          ? 'bg-gray-900/90 text-white border-gray-700'
-          : 'bg-white/90 text-gray-900 border-gray-200'
+      className={`flex items-center justify-between h-[41px] px-4 select-none ${
+        isDark ? 'bg-transparent text-white' : 'bg-transparent text-gray-900'
       }`}
       style={
         {
-          WebkitAppRegion: 'drag',
-          backdropFilter: 'blur(12px)'
+          WebkitAppRegion: 'drag'
         } as any
       }
     >
