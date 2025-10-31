@@ -926,9 +926,9 @@ class DownloadManager {
       }
     })
 
-    // 获取已删除的下载任务
+    // 获取已删除的下载任务（仅返回数组，匹配渲染层类型定义）
     ipcMain.handle('get-removed-downloads', async () => {
-      return { success: true, removedDownloads: this.removedDownloads }
+      return this.removedDownloads
     })
 
     // 获取上次下载路径

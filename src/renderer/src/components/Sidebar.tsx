@@ -90,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex flex-col p-6 gap-4">
         <Button
           onClick={onSettingsClick}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-slate-700 cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-slate-700 hover:bg-blue-50 border border-blue-200/60 hover:border-blue-300 transition-colors cursor-pointer"
           title="设置"
         >
           <Settings className="w-4 h-4" />

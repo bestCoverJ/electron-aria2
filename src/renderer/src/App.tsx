@@ -174,8 +174,8 @@ function App(): React.JSX.Element {
 
   const loadRemovedDownloads = async (): Promise<void> => {
     try {
-      const removedTasks = await window.downloadAPI.getRemovedDownloads()
-      setRemovedDownloads(removedTasks || [])
+      const removed = await window.downloadAPI.getRemovedDownloads()
+      setRemovedDownloads(removed || [])
     } catch (error) {
       console.error('加载已删除下载列表失败:', error)
     }
@@ -574,7 +574,7 @@ function App(): React.JSX.Element {
 
           {/* 底部统计信息 */}
           {filteredDownloads.length > 0 && (
-            <div className="border-t border-slate-200/50 p-4 bg-white/40 backdrop-blur-sm">
+            <div className="flex items-center border-t border-slate-200/50 p-4 bg-white/40 backdrop-blur-sm">
               <div className="flex items-center justify-between text-sm text-slate-600 gap-2">
                 <div className="flex items-center space-x-4 gap-4">
                   <span>总计: {downloadCounts.all} 个任务</span>
