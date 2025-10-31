@@ -6,6 +6,7 @@ import Header from './components/Header'
 import DownloadItemNew from './components/DownloadItemNew'
 import AddDownloadModal from './components/AddDownloadModal'
 import CoverxGenerator from './components/CoverxGenerator'
+import SettingsModal from './components/SettingsModal'
 
 interface DownloadTask {
   gid: string
@@ -20,6 +21,11 @@ interface DownloadTask {
   }>
   dir: string
   errorMessage?: string
+  stats?: {
+    startedAt?: number
+    maxSpeed?: number
+    sourceUrl?: string
+  }
 }
 
 function App(): React.JSX.Element {
@@ -27,6 +33,7 @@ function App(): React.JSX.Element {
   const [removedDownloads, setRemovedDownloads] = useState<DownloadTask[]>([])
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isCoverxGeneratorOpen, setIsCoverxGeneratorOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [filter, setFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -34,6 +41,15 @@ function App(): React.JSX.Element {
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   )
   const [lastClipboardCheck, setLastClipboardCheck] = useState('')
+  const [prefillUrl, setPrefillUrl] = useState<string | undefined>(undefined)
+  const [orderMap, setOrderMap] = useState<Record<string, number>>({})
+  const [aria2Status, setAria2Status] = useState<{connected:boolean; reason?:string; delay?:number; path?:string; code?: number | null; signal?: string | null; error?: string}>({connected:false})
+  const ORDER_STORAGE_KEY = 'downloadOrderV1'
+
+  const orderKeyForTask = (t: DownloadTask): string => {
+    const p = t.files?.[0]?.path
+    return p && p.trim() !== '' ? p : t.gid
+  }
 
   useEffect(() => {
     // 主题切换监听
@@ -67,18 +83,71 @@ function App(): React.JSX.Element {
     // 初始化下载列表
     loadDownloads()
     loadRemovedDownloads()
+    // 从本地存储恢复顺序（基于稳定的文件路径为key，回退到gid）
+    try {
+      const saved = localStorage.getItem(ORDER_STORAGE_KEY)
+      if (saved) {
+        const byKey: Record<string, number> = JSON.parse(saved)
+        setOrderMap((prev) => {
+          const next: Record<string, number> = { ...prev }
+          downloads.forEach((d) => {
+            const key = orderKeyForTask(d)
+            if (byKey[key] !== undefined) next[d.gid] = byKey[key]
+          })
+          return next
+        })
+      }
+    } catch {}
 
-    // 检查剪切板内容
+  // 检查剪切板内容
     checkClipboardForDownloadLinks()
 
     // 监听下载事件
     window.downloadAPI.onDownloadsUpdated((updatedDownloads) => {
       setDownloads(updatedDownloads)
+      // 保持已有顺序，不存在的添加到末尾
+      setOrderMap((prev) => {
+        const next: Record<string, number> = { ...prev }
+        let maxOrder = Object.values(next).reduce((m, v) => Math.max(m, v), -1)
+        updatedDownloads.forEach((d) => {
+          if (next[d.gid] === undefined) {
+            next[d.gid] = ++maxOrder
+          }
+        })
+        // 清理已不存在的gid
+        Object.keys(next).forEach((gid) => {
+          if (!updatedDownloads.find((d) => d.gid === gid)) delete next[gid]
+        })
+        // 同步持久化（按稳定key）
+        try {
+          const pairs = updatedDownloads.map((d) => ({ key: orderKeyForTask(d), order: next[d.gid] ?? 0 }))
+          const byKey: Record<string, number> = {}
+          pairs.forEach(({ key, order }) => {
+            byKey[key] = order
+          })
+          localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(byKey))
+        } catch {}
+        return next
+      })
     })
+
+    // 监听 下载引擎 状态
+    window.downloadAPI.onAria2Status((s) => {
+      setAria2Status(s)
+    })
+
+    // 兜底：初次启动主动测试一次连接状态，避免偶发事件丢失导致“仍显示等待连接”
+    ;(async () => {
+      try {
+        const res = await window.downloadAPI.testAria2Connection({})
+        if (res?.success) setAria2Status({ connected: true })
+      } catch {}
+    })()
 
     // 监听深度链接
     window.downloadAPI.onAddDownloadFromLink((url) => {
-      handleAddDownload(url)
+      setPrefillUrl(url)
+      setIsAddModalOpen(true)
     })
 
     // 清理监听器
@@ -119,10 +188,11 @@ function App(): React.JSX.Element {
       if (text && text !== lastClipboardCheck && isDownloadableUrl(text)) {
         setLastClipboardCheck(text)
         const shouldOpen = confirm(
-          `检测到剪切板中有下载链接：\n${text.substring(0, 100)}${text.length > 100 ? '...' : ''}\n\n是否立即添加下载任务？`
+          `检测到剪贴板有下载链接：\n${text.substring(0, 100)}${text.length > 100 ? '...' : ''}\n\n是否打开新增任务窗口？`
         )
         if (shouldOpen) {
-          handleAddDownload(text)
+          setPrefillUrl(text)
+          setIsAddModalOpen(true)
         }
       }
     } catch (error) {
@@ -256,7 +326,8 @@ function App(): React.JSX.Element {
     }
   }
 
-  const handleStopDownload = async (gid: string): Promise<void> => {
+  // 已不使用：可按需恢复
+  /* const handleStopDownload = async (gid: string): Promise<void> => {
     if (confirm('确定要停止这个下载任务吗？')) {
       try {
         const result = await window.downloadAPI.stopDownload(gid)
@@ -267,7 +338,7 @@ function App(): React.JSX.Element {
         console.error('停止下载失败:', error)
       }
     }
-  }
+  } */
 
   const handleRemoveDownload = async (gid: string): Promise<void> => {
     if (confirm('确定要移除这个下载任务吗？文件将移动到回收站。')) {
@@ -282,7 +353,7 @@ function App(): React.JSX.Element {
     }
   }
 
-  const handleDeleteDownload = async (gid: string): Promise<void> => {
+  /* const handleDeleteDownload = async (gid: string): Promise<void> => {
     if (confirm('确定要彻底删除这个下载任务吗？文件将被永久删除，此操作不可恢复！')) {
       try {
         const result = await window.downloadAPI.deleteDownloadPermanently(gid)
@@ -293,9 +364,9 @@ function App(): React.JSX.Element {
         console.error('删除下载失败:', error)
       }
     }
-  }
+  } */
 
-  const handleRestartDownload = async (gid: string): Promise<void> => {
+  /* const handleRestartDownload = async (gid: string): Promise<void> => {
     try {
       // 获取原始下载信息
       const download = downloads.find((d) => d.gid === gid)
@@ -308,7 +379,7 @@ function App(): React.JSX.Element {
       console.error('重新下载失败:', error)
       alert('重新下载失败')
     }
-  }
+  } */
 
   const filteredDownloads = useMemo(() => {
     let tasks = filter === 'removed' ? removedDownloads : downloads
@@ -338,6 +409,14 @@ function App(): React.JSX.Element {
       )
     }
 
+    // 依据自定义顺序排序（仅对非 removed 列表生效）
+    if (filter !== 'removed') {
+      tasks = [...tasks].sort((a, b) => {
+        const oa = orderMap[a.gid] ?? 0
+        const ob = orderMap[b.gid] ?? 0
+        return oa - ob
+      })
+    }
     return tasks
   }, [downloads, removedDownloads, filter, searchQuery])
 
@@ -379,11 +458,26 @@ function App(): React.JSX.Element {
           onFilterChange={setFilter}
           activeFilter={filter}
           onNewTaskClick={() => setIsAddModalOpen(true)}
+          onSettingsClick={() => setIsSettingsOpen(true)}
           counts={downloadCounts}
+          engineConnected={aria2Status.connected}
         />
 
         {/* 右侧主内容区 */}
-        <main className="flex-1 flex flex-col rounded-tl overflow-hidden bg-white/60 backdrop-blur-xl border-l border-white/20">
+        <main className="flex-1 flex flex-col rounded-tl overflow-hidden bg-white/60 backdrop-blur-xl border-l border-white/20 relative">
+          {/* 底部独立的下载引擎提示栏（独立于状态栏） */}
+          {(!aria2Status.connected) && (
+            <div className="w-full mt-0 bg-yellow-50 text-yellow-800 border-b border-yellow-200">
+              <div className="px-4 py-2 text-sm flex items-center justify-between">
+                <span>
+                  {aria2Status.reason === 'missing-binary'
+                    ? '未检测到内置下载引擎，请前往设置配置路径或切换外部 RPC。'
+                    : `正在尝试连接下载引擎${aria2Status.delay ? `，${Math.round((aria2Status.delay)/1000)}s 后重试` : ''}…`}
+                </span>
+                <button onClick={()=>setIsSettingsOpen(true)} className="text-blue-600 hover:underline">打开设置</button>
+              </div>
+            </div>
+          )}
           {/* 顶部搜索栏 */}
           <Header onSearchChange={setSearchQuery} />
 
@@ -405,36 +499,74 @@ function App(): React.JSX.Element {
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
+              <div
+                className="flex flex-col gap-2"
+                onDragOver={(e) => {
+                  e.preventDefault()
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const srcGid = e.dataTransfer.getData('text/plain')
+                  const target = (e.target as HTMLElement).closest('[data-gid]') as HTMLElement | null
+                  const tgtGid = target?.dataset?.gid
+                  if (!srcGid || !tgtGid || srcGid === tgtGid) return
+                  setOrderMap((prev) => {
+                    const next = { ...prev }
+                    const srcOrder = next[srcGid] ?? 0
+                    const tgtOrder = next[tgtGid] ?? 0
+                    // 简单：将 src 插入到 tgt 前，将区间移动
+                    Object.keys(next).forEach((gid) => {
+                      const v = next[gid]
+                      if (srcOrder < tgtOrder) {
+                        if (v > srcOrder && v <= tgtOrder) next[gid] = v - 1
+                      } else if (srcOrder > tgtOrder) {
+                        if (v >= tgtOrder && v < srcOrder) next[gid] = v + 1
+                      }
+                    })
+                    next[srcGid] = tgtOrder
+                    // 同步持久化（按稳定key）
+                    try {
+                      const pairs = downloads.map((d) => ({ key: orderKeyForTask(d), order: next[d.gid] ?? 0 }))
+                      const byKey: Record<string, number> = {}
+                      pairs.forEach(({ key, order }) => {
+                        byKey[key] = order
+                      })
+                      localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(byKey))
+                    } catch {}
+                    return next
+                  })
+                }}
+              >
                 {/* 移除额外的间距，因为DownloadItemNew已经有了margin */}
                 {filteredDownloads.map((task) => (
-                  <DownloadItemNew
-                    key={task.gid}
-                    task={task}
-                    fileName={getFileName(task)}
-                    sourceType={getSourceType(task)}
-                    onPause={() => handlePauseDownload(task.gid)}
-                    onResume={() => handleResumeDownload(task.gid)}
-                    onRemove={() => handleRemoveDownload(task.gid)}
-                    onSelectFile={() => {
-                      // 在文件管理器中显示文件
-                      if (window.downloadAPI?.selectFile) {
-                        window.downloadAPI.selectFile(task.gid)
-                      }
-                    }}
-                    onOpenFile={() => {
-                      // 打开文件
-                      if (window.downloadAPI?.openFile) {
-                        window.downloadAPI.openFile(task.gid)
-                      }
-                    }}
-                    onOpenFolder={() => {
-                      // 打开文件夹
-                      if (window.downloadAPI?.openFolder) {
-                        window.downloadAPI.openFolder(task.gid)
-                      }
-                    }}
-                  />
+                  <div key={task.gid} data-gid={task.gid} className="drag-item">
+                    <DownloadItemNew
+                      task={task}
+                      fileName={getFileName(task)}
+                      sourceType={getSourceType(task)}
+                      onPause={() => handlePauseDownload(task.gid)}
+                      onResume={() => handleResumeDownload(task.gid)}
+                      onRemove={() => handleRemoveDownload(task.gid)}
+                      onSelectFile={() => {
+                        // 在文件管理器中显示文件
+                        if (window.downloadAPI?.selectFile) {
+                          window.downloadAPI.selectFile(task.gid)
+                        }
+                      }}
+                      onOpenFile={() => {
+                        // 打开文件
+                        if (window.downloadAPI?.openFile) {
+                          window.downloadAPI.openFile(task.gid)
+                        }
+                      }}
+                      onOpenFolder={() => {
+                        // 打开文件夹
+                        if (window.downloadAPI?.openFolder) {
+                          window.downloadAPI.openFolder(task.gid)
+                        }
+                      }}
+                    />
+                  </div>
                 ))}
               </div>
             )}
@@ -467,6 +599,20 @@ function App(): React.JSX.Element {
                       : 0}
                     %
                   </span>
+                  {/* 下载引擎连接状态指示与提示（指示灯融入状态栏） */}
+                  <span className={`ml-4 flex items-center gap-1`}>
+                    <span className={`inline-block w-2 h-2 rounded-full ${aria2Status.connected ? 'bg-green-500' : 'bg-yellow-400 animate-pulse'}`} title={aria2Status.connected ? '下载引擎已连接' : '下载引擎未连接'} />
+                    <span className="ml-1">
+                      {aria2Status.connected
+                        ? '下载引擎已连接'
+                        : aria2Status.reason === 'missing-binary'
+                          ? '未检测到内置下载引擎，请前往设置配置路径或切换外部 RPC。'
+                          : `正在尝试连接下载引擎${aria2Status.delay ? `，${Math.round(aria2Status.delay/1000)}s 后重试` : ''}…`}
+                    </span>
+                    {!aria2Status.connected && (
+                      <button onClick={()=>setIsSettingsOpen(true)} className="ml-2 text-blue-600 hover:underline">打开设置</button>
+                    )}
+                  </span>
                 </div>
               </div>
             </div>
@@ -474,12 +620,22 @@ function App(): React.JSX.Element {
         </main>
       </div>
 
+      {/* 右下角连接状态指示灯（仅在无状态栏且已连接时显示，避免与提示栏/状态栏重复） */}
+      {filteredDownloads.length === 0 && aria2Status.connected && (
+        <div className="fixed right-4 bottom-4 z-30 flex items-center gap-2 text-xs text-slate-600">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <span>下载引擎已连接</span>
+        </div>
+      )}
+
       {/* 添加下载模态框 */}
       <AddDownloadModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddDownload={handleAddDownload}
         onAddTorrent={handleAddTorrent}
+        initialUrl={prefillUrl}
+        engineConnected={aria2Status.connected}
       />
 
       {/* Coverx链接生成器 */}
@@ -487,6 +643,9 @@ function App(): React.JSX.Element {
         isOpen={isCoverxGeneratorOpen}
         onClose={() => setIsCoverxGeneratorOpen(false)}
       />
+
+      {/* 设置页面（模态） */}
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   )
 }

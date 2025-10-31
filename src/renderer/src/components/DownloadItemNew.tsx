@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   File,
   Play,
@@ -29,6 +30,11 @@ interface DownloadTask {
   }>
   dir: string
   errorMessage?: string
+  stats?: {
+    startedAt?: number
+    maxSpeed?: number
+    sourceUrl?: string
+  }
 }
 
 interface DownloadItemProps {
@@ -53,6 +59,21 @@ const DownloadItemNew: React.FC<DownloadItemProps> = ({
   onOpenFile,
   onOpenFolder
 }) => {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [showDetail, setShowDetail] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [])
   const formatBytes = (bytesStr: string, decimals = 2): string => {
     const bytes = Number(bytesStr)
     if (isNaN(bytes) || bytes === 0) return '0 B'
@@ -68,25 +89,25 @@ const DownloadItemNew: React.FC<DownloadItemProps> = ({
     const extension = fileName.toLowerCase().split('.').pop() || ''
 
     if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(extension)) {
-      return { icon: Image, color: 'text-emerald-500', bgColor: 'bg-emerald-50 border border-emerald-100' }
+      return { icon: Image, color: 'text-emerald-500', bgColor: 'bg-emerald-50 border border-emerald-100', bar: 'bg-emerald-400' }
     }
     if (['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm'].includes(extension)) {
-      return { icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-50 border border-purple-100' }
+      return { icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-50 border border-purple-100', bar: 'bg-purple-400' }
     }
     if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma'].includes(extension)) {
-      return { icon: Music, color: 'text-pink-500', bgColor: 'bg-pink-50 border border-pink-100' }
+      return { icon: Music, color: 'text-pink-500', bgColor: 'bg-pink-50 border border-pink-100', bar: 'bg-pink-400' }
     }
     if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(extension)) {
-      return { icon: Archive, color: 'text-amber-500', bgColor: 'bg-amber-50 border border-amber-100' }
+      return { icon: Archive, color: 'text-amber-500', bgColor: 'bg-amber-50 border border-amber-100', bar: 'bg-amber-400' }
     }
     if (['exe', 'msi', 'dmg', 'deb', 'rpm'].includes(extension)) {
-      return { icon: Package, color: 'text-red-500', bgColor: 'bg-red-50 border border-red-100' }
+      return { icon: Package, color: 'text-red-500', bgColor: 'bg-red-50 border border-red-100', bar: 'bg-red-400' }
     }
     if (['txt', 'doc', 'docx', 'pdf', 'rtf'].includes(extension)) {
-      return { icon: FileText, color: 'text-blue-500', bgColor: 'bg-blue-50 border border-blue-100' }
+      return { icon: FileText, color: 'text-blue-500', bgColor: 'bg-blue-50 border border-blue-100', bar: 'bg-blue-400' }
     }
 
-    return { icon: File, color: 'text-slate-500', bgColor: 'bg-slate-50 border border-slate-100' }
+    return { icon: File, color: 'text-slate-500', bgColor: 'bg-slate-50 border border-slate-100', bar: 'bg-slate-400' }
   }
 
   // 获取来源文本
@@ -110,16 +131,18 @@ const DownloadItemNew: React.FC<DownloadItemProps> = ({
 
   return (
     <div
-      className={`flex items-center p-4 bg-white rounded-xl border border-slate-100 transition-all duration-200 mb-3 cursor-move select-none gap-4 ${
+      className={`relative flex items-center p-4 bg-white rounded-xl border border-slate-100 transition-all duration-200 mb-3 cursor-move select-none gap-4 ${
         task.status === 'error'
-          ? 'hover:border-red-200 hover:shadow-sm hover:bg-red-50/30'
-          : 'hover:border-slate-200 hover:shadow-sm hover:bg-slate-50/30'
+          ? 'hover:border-red-200 hover:shadow-sm hover:bg-red-50/20'
+          : 'hover:border-slate-200 hover:shadow-sm hover:bg-slate-50/20'
       }`}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', task.gid)
       }}
     >
+      {/* 左侧类型色条，保持高层级不被hover覆盖 */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${fileIcon.bar}`} />
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <div className={`w-12 h-12 ${fileIcon.bgColor} rounded-xl flex items-center justify-center flex-shrink-0`}>
           <IconComponent className={`w-6 h-6 ${fileIcon.color}`} />
@@ -243,10 +266,58 @@ const DownloadItemNew: React.FC<DownloadItemProps> = ({
           variant="ghost"
           size="sm"
           className="h-9 w-9 p-0 text-slate-600 hover:bg-slate-50 hover:text-slate-700 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-all duration-200"
+          ref={triggerRef}
+          onClick={() => {
+            if (!menuOpen) {
+              const rect = triggerRef.current?.getBoundingClientRect()
+              if (rect) {
+                // 右对齐到触发按钮，距离底部 4px
+                const width = 176 // w-44
+                setMenuPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - width })
+              }
+            }
+            setMenuOpen((v) => !v)
+          }}
         >
           <MoreVertical className="w-4 h-4" />
         </Button>
+        {/* 下拉菜单 */}
+        {menuOpen && createPortal(
+          <div ref={menuRef} style={{ position: 'absolute', top: `${menuPos.top}px`, left: `${menuPos.left}px` }} className="z-[1000] w-44 bg-white shadow-lg border border-slate-200 rounded-lg overflow-hidden">
+            {task.status === 'complete' && (
+              <>
+                <button onClick={onOpenFile} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">打开文件</button>
+                <button onClick={onOpenFolder} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">打开文件夹</button>
+                <button onClick={onRemove} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 text-red-600 cursor-pointer">删除文件</button>
+                <div className="h-px bg-slate-200" />
+              </>
+            )}
+            <button onClick={() => { setShowDetail(true); setMenuOpen(false) }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">文件详情</button>
+          </div>,
+          document.body
+        )}
       </div>
+
+      {/* 文件详情弹窗 */}
+      {showDetail && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/20" onClick={() => setShowDetail(false)} />
+          <div className="relative z-10 w-full max-w-md bg-white rounded-xl border border-slate-200 shadow-lg p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-base font-semibold">文件详情</div>
+              <button onClick={() => setShowDetail(false)} className="text-slate-500 hover:text-slate-700 cursor-pointer">×</button>
+            </div>
+            <div className="space-y-2 text-sm text-slate-700">
+              <div className="flex justify-between"><span className="text-slate-500">文件名称</span><span className="max-w-[60%] truncate" title={fileName}>{fileName}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">文件大小</span><span>{formatBytes(task.totalLength)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">下载时间</span><span>{task.stats?.startedAt ? new Date(task.stats.startedAt).toLocaleString() : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">下载来源</span><span title={task.stats?.sourceUrl || ''}>{task.stats?.sourceUrl ? (task.stats.sourceUrl.length>28? task.stats.sourceUrl.slice(0,28)+'…' : task.stats.sourceUrl) : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">最高速度</span><span>{task.stats?.maxSpeed ? `${formatBytes(String(task.stats.maxSpeed))}/s` : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">平均速度</span><span>{task.stats?.startedAt && Number(task.totalLength) > 0 ? (()=>{const sec=(Date.now()- (task.stats!.startedAt!))/1000; const avg=sec>0? Number(task.completedLength)/sec:0; return `${formatBytes(String(avg))}/s`})() : '—'}</span></div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

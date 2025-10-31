@@ -5,7 +5,8 @@ interface TitleBarProps {
   title?: string
 }
 
-const TitleBar: React.FC<TitleBarProps> = ({ title = 'Electron Aria2 下载器' }) => {
+// 临时产品名默认：可在此替换为你最终确认的名称
+const TitleBar: React.FC<TitleBarProps> = ({ title = 'Tide' }) => {
   // 获取主题状态
   const isDark = document.body.classList.contains('dark')
 
@@ -24,17 +25,13 @@ const TitleBar: React.FC<TitleBarProps> = ({ title = 'Electron Aria2 下载器' 
   return (
     <div
       className={`flex items-center justify-between h-[41px] px-4 select-none ${
-        isDark ? 'bg-transparent text-white' : 'bg-transparent text-gray-900'
-      }`}
-      style={
-        {
-          WebkitAppRegion: 'drag'
-        } as any
-      }
+        isDark ? 'text-white' : 'text-gray-900'
+      } bg-transparent`}
+      style={{ WebkitAppRegion: 'drag' } as any}
     >
       <div className="flex items-center gap-2 space-x-3">
         <div className="w-4 h-4 bg-blue-500 rounded flex items-center justify-center">
-          <span className="text-xs font-bold text-white">A</span>
+          <span className="text-xs font-bold text-white">{(title?.trim?.()?.[0] || 'T').toUpperCase()}</span>
         </div>
         <span className="text-sm font-medium">{title}</span>
       </div>
@@ -43,7 +40,7 @@ const TitleBar: React.FC<TitleBarProps> = ({ title = 'Electron Aria2 下载器' 
         <button
           onClick={handleMinimize}
           className={`w-8 h-[41px] flex items-center justify-center transition-colors ${
-            isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+            isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'
           }`}
           title="最小化"
         >
@@ -53,7 +50,7 @@ const TitleBar: React.FC<TitleBarProps> = ({ title = 'Electron Aria2 下载器' 
         <button
           onClick={handleMaximize}
           className={`w-8 h-[41px] flex items-center justify-center transition-colors ${
-            isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+            isDark ? 'hover:bg-white/5' : 'hover:bg-black/5'
           }`}
           title="最大化"
         >

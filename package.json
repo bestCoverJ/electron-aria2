@@ -30,6 +30,7 @@
     "autoprefixer": "^10.4.21",
     "axios": "^1.11.0",
     "electron-updater": "^6.3.9",
+    "json5": "^2.2.3",
     "less": "^4.4.0",
     "lucide-react": "^0.532.0",
     "maria2": "^0.4.1",

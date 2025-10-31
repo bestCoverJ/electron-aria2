@@ -20,6 +20,11 @@ interface DownloadTask {
   }>
   dir: string
   errorMessage?: string
+  stats?: {
+    startedAt?: number
+    maxSpeed?: number
+    sourceUrl?: string
+  }
 }
 
 interface DownloadAPI {
@@ -51,6 +56,15 @@ interface DownloadAPI {
   windowMaximize: () => Promise<void>
   windowClose: () => Promise<void>
 
+  // 设置
+  setTheme: (theme: 'system' | 'light' | 'dark') => Promise<void>
+  setDownloadLimit: (limit: string) => Promise<void>
+  getSettings: () => Promise<{ theme: 'system' | 'light' | 'dark'; downloadPath: string; downloadLimit: string }>
+  // 引擎设置
+  selectExecutable: () => Promise<{ canceled: boolean; filePaths: string[] }>
+  setEngineConfig: (cfg: { engineMode: 'internal' | 'external'; aria2Path?: string | null; rpcHost?: string; rpcPort?: number; rpcSecret?: string }) => Promise<{ success: boolean }>
+  testAria2Connection: (params?: { engineMode?: 'internal' | 'external'; aria2Path?: string; rpcHost?: string; rpcPort?: number; rpcSecret?: string }) => Promise<{ success: boolean; error?: string }>
+
   // 事件监听
   onDownloadStarted: (callback: (gid: string) => void) => void
   onDownloadCompleted: (callback: (gid: string) => void) => void
@@ -59,6 +73,8 @@ interface DownloadAPI {
   onDownloadStopped: (callback: (gid: string) => void) => void
   onDownloadsUpdated: (callback: (downloads: DownloadTask[]) => void) => void
   onAddDownloadFromLink: (callback: (url: string) => void) => void
+  onThemeChanged: (callback: (theme: 'dark' | 'light') => void) => void
+  onAria2Status: (callback: (status: { connected: boolean; reason?: string; path?: string; delay?: number; code?: number | null; signal?: string | null; error?: string }) => void) => void
 
   // coverx链接处理
   createCoverxLink: (originalUrl: string) => Promise<{ success: boolean; coverxLink?: string; error?: string }>

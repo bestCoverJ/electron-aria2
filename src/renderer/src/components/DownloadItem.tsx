@@ -1,15 +1,5 @@
 import React from 'react'
-import {
-  Play,
-  Pause,
-  Square,
-  Trash2,
-  Download,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  RotateCcw
-} from 'lucide-react'
+import { Play, Pause, Square, Trash2, Download, RotateCcw } from 'lucide-react'
 
 interface DownloadTask {
   gid: string

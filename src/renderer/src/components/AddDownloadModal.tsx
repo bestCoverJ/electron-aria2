@@ -7,13 +7,17 @@ interface AddDownloadModalProps {
   onClose: () => void
   onAddDownload: (url: string, options?: any) => Promise<void>
   onAddTorrent: (file: File, options?: any) => Promise<void>
+  initialUrl?: string
+  engineConnected?: boolean
 }
 
 const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
   isOpen,
   onClose,
   onAddDownload,
-  onAddTorrent
+  onAddTorrent,
+  initialUrl,
+  engineConnected = false
 }) => {
   // 主题检测
   const isDark = document.body.classList.contains('dark')
@@ -21,8 +25,6 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
   const [downloadPath, setDownloadPath] = useState('')
   const [fileName, setFileName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [showFileNameInput, setShowFileNameInput] = useState(false)
-  const [tempFileName, setTempFileName] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 自动提取文件名
@@ -48,7 +50,7 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
       try {
         const result = await window.downloadAPI.parseCoverxLink(inputUrl)
         if (result.success) {
-          return result.originalUrl
+          return result.originalUrl ?? inputUrl
         } else {
           console.error('解析coverx链接失败:', result.error)
           return inputUrl // 返回原始URL
@@ -76,8 +78,11 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
 
     if (isOpen) {
       loadLastPath()
+      if (initialUrl) {
+        setUrl(initialUrl)
+      }
     }
-  }, [isOpen])
+  }, [isOpen, initialUrl])
 
     // 监听URL变化，自动处理coverx链接和提取文件名
   useEffect(() => {
@@ -115,6 +120,11 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     if (isLoading) return // 防抖动
+
+    if (!engineConnected) {
+      alert('下载引擎未连接，无法添加任务')
+      return
+    }
 
     if (!url.trim()) {
       alert('请输入下载链接')
@@ -165,14 +175,9 @@ const AddDownloadModal: React.FC<AddDownloadModalProps> = ({
       }
 
       console.log('添加下载:', { url: processedUrl, options })
-      const result = await window.downloadAPI.addDownload(processedUrl, options)
-      if (result.success) {
-        onAddDownload(processedUrl, options)
-        handleClose()
-      } else {
-        console.error('添加下载失败:', result.error)
-        alert(`添加下载失败: ${result.error}`)
-      }
+      // 仅通过回调统一添加，避免重复创建
+      await onAddDownload(processedUrl, options)
+      handleClose()
     } catch (error) {
       console.error('添加下载出错:', error)
       alert(`添加下载出错: ${String(error)}`)

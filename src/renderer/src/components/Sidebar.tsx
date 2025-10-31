@@ -1,10 +1,11 @@
 import React from 'react'
-import { Plus, Home, Download, Clock, CheckCircle, AlertCircle, Trash2 } from 'lucide-react'
+import { Plus, Home, Download, Clock, CheckCircle, AlertCircle, Trash2, Settings } from 'lucide-react'
 import { Button } from './ui/button'
 
 interface SidebarProps {
   onFilterChange: (filter: string) => void
   onNewTaskClick: () => void
+  onSettingsClick: () => void
   activeFilter: string
   counts: {
     all: number
@@ -14,13 +15,16 @@ interface SidebarProps {
     error: number
     removed: number
   }
+  engineConnected?: boolean
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   onFilterChange,
   onNewTaskClick,
+  onSettingsClick,
   activeFilter,
-  counts
+  counts,
+  engineConnected = false
 }) => {
   const navItems = [
     { id: 'all', label: '全部', icon: Home, count: counts.all },
@@ -48,7 +52,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="px-6 py-6">
         <Button
           onClick={onNewTaskClick}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white border-0 shadow-lg"
+          disabled={!engineConnected}
+          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white border-0 shadow-lg"
+          title={engineConnected ? '新建任务' : '下载引擎未连接，无法新建任务'}
         >
           <Plus className="w-4 h-4 mr-2" />
           新建任务
@@ -80,11 +86,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </nav>
 
-      {/* 底部空间 */}
-      <div className="p-6">
-        <div className="flex items-center justify-center gap-1 text-xs text-slate-500">
+      {/* 底部空间：设置按钮 + Powered by */}
+      <div className="flex flex-col p-6 gap-4">
+        <Button
+          onClick={onSettingsClick}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-slate-700 cursor-pointer"
+          title="设置"
+        >
+          <Settings className="w-4 h-4" />
+          <span className="text-sm font-medium">设置</span>
+        </Button>
+        <div className="flex items-center justify-center gap-1 text-xs text-slate-500 mt-6">
           <span>Powered by</span>
-          <img src="/assets/icons/aria2.png" alt="Aria2" className="w-4 h-4 inline-block" />
+          <img src="/assets/icons/aria2.png" alt="下载引擎" className="w-4 h-4 inline-block" />
           <img src="/assets/icons/electron.png" alt="Electron" className="w-4 h-4 inline-block" />
         </div>
       </div>

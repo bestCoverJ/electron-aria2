@@ -21,10 +21,24 @@ const downloadAPI = {
   showOpenDialog: () => ipcRenderer.invoke('show-open-dialog'),
   showFolderDialog: () => ipcRenderer.invoke('show-folder-dialog'),
 
+  // 文件操作
+  selectFile: (gid: string) => ipcRenderer.invoke('select-file', gid),
+  openFile: (gid: string) => ipcRenderer.invoke('open-file', gid),
+  openFolder: (gid: string) => ipcRenderer.invoke('open-folder', gid),
+
   // 窗口控制
-  windowMinimize: () => ipcRenderer.invoke('window-minimize'),
-  windowMaximize: () => ipcRenderer.invoke('window-maximize'),
-  windowClose: () => ipcRenderer.invoke('window-close'),
+  windowMinimize: () => ipcRenderer.invoke('minimize-window'),
+  windowMaximize: () => ipcRenderer.invoke('maximize-window'),
+  windowClose: () => ipcRenderer.invoke('close-window'),
+
+  // 设置
+  setTheme: (theme: 'system' | 'light' | 'dark') => ipcRenderer.invoke('set-theme', theme),
+  setDownloadLimit: (limit: string) => ipcRenderer.invoke('set-download-limit', limit),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  // 引擎设置
+  selectExecutable: () => ipcRenderer.invoke('select-executable'),
+  setEngineConfig: (cfg: any) => ipcRenderer.invoke('set-engine-config', cfg),
+  testAria2Connection: (params?: any) => ipcRenderer.invoke('test-aria2-connection', params),
 
   // 事件监听
   onDownloadStarted: (callback: (gid: string) => void) => {
@@ -47,6 +61,12 @@ const downloadAPI = {
   },
   onAddDownloadFromLink: (callback: (url: string) => void) => {
     ipcRenderer.on('add-download-from-link', (_, url) => callback(url))
+  },
+  onThemeChanged: (callback: (theme: 'dark' | 'light') => void) => {
+    ipcRenderer.on('theme-changed', (_, t) => callback(t))
+  },
+  onAria2Status: (callback: (status: any) => void) => {
+    ipcRenderer.on('aria2-status', (_, s) => callback(s))
   },
 
   // coverx链接处理
