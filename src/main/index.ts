@@ -15,6 +15,9 @@ function createMainWindow(): void {
     minHeight: 640,
     title: "Tide X",
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#042f2e" : "#f0fdfa",
+    backgroundMaterial: process.platform === "win32" ? "mica" : undefined,
+    vibrancy: process.platform === "darwin" ? "sidebar" : undefined,
+    visualEffectState: process.platform === "darwin" ? "active" : undefined,
     show: false,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),

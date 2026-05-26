@@ -31,12 +31,12 @@
 
 ## 5. Renderer UI
 
-- [ ] 5.1 Build the main dashboard layout with task filters, transfer summary, primary task list, and task detail surface.
-- [ ] 5.2 Build the add-download dialog or sheet with labeled inputs, validation states, torrent file selection, and keyboard-accessible actions.
-- [ ] 5.3 Build task row controls using shadcn/ui components and Lucide icons for pause, resume, remove, retry, reveal, and details.
-- [ ] 5.4 Build empty, loading, runtime-unavailable, completed, failed, and metadata-discovery states.
-- [ ] 5.5 Build settings screens for downloads, limits, proxy, appearance, advanced aria2 options, and shutdown behavior.
-- [ ] 5.6 Apply the Tide X visual system: flat dashboard style, teal primary color, orange primary action color, Fira typography, visible focus states, and reduced-motion support.
+- [x] 5.1 Build the main dashboard layout with task filters, transfer summary, primary task list, and task detail surface.
+- [x] 5.2 Build the add-download dialog or sheet with labeled inputs, validation states, torrent file selection, and keyboard-accessible actions.
+- [x] 5.3 Build task row controls using shadcn/ui components and Lucide icons for pause, resume, remove, retry, reveal, and details.
+- [x] 5.4 Build empty, loading, runtime-unavailable, completed, failed, and metadata-discovery states.
+- [x] 5.5 Build settings screens for downloads, limits, proxy, appearance, advanced aria2 options, and shutdown behavior.
+- [x] 5.6 Apply the Tide X visual system: flat dashboard style, teal primary color, orange primary action color, Fira typography, visible focus states, and reduced-motion support.
 
 ## 6. Desktop Integration
 

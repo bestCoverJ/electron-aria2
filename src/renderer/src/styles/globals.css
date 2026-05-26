@@ -1,29 +1,27 @@
-@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 174 72% 97%;
-    --foreground: 176 60% 18%;
+    --background: 180 48% 96%;
+    --foreground: 180 40% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 176 60% 18%;
+    --card-foreground: 180 40% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 176 60% 18%;
+    --popover-foreground: 180 40% 13%;
     --primary: 173 80% 32%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 172 66% 50%;
-    --secondary-foreground: 176 60% 18%;
-    --muted: 174 45% 92%;
-    --muted-foreground: 176 28% 34%;
-    --accent: 24 95% 53%;
+    --secondary: 174 40% 90%;
+    --secondary-foreground: 180 40% 13%;
+    --muted: 174 42% 91%;
+    --muted-foreground: 178 24% 31%;
+    --accent: 24 92% 52%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 174 28% 82%;
-    --input: 174 28% 82%;
+    --border: 174 26% 78%;
+    --input: 174 26% 78%;
     --ring: 173 80% 32%;
     --radius: 0.5rem;
   }
@@ -56,6 +54,54 @@
 
   body {
     @apply bg-background font-sans text-foreground antialiased;
+    font-family:
+      "Source Han Sans SC", "Source Han Sans CN", "Noto Sans CJK SC",
+      "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  }
+
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .app-surface {
+    background:
+      radial-gradient(
+        circle at 20% 15%,
+        hsl(173 80% 32% / 0.16),
+        transparent 28%
+      ),
+      radial-gradient(
+        circle at 82% 8%,
+        hsl(24 92% 52% / 0.12),
+        transparent 24%
+      ),
+      linear-gradient(
+        135deg,
+        hsl(var(--background) / 0.94),
+        hsl(174 42% 91% / 0.96)
+      );
+  }
+
+  .glass-panel {
+    background-color: hsl(var(--card) / 0.78);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    backdrop-filter: blur(22px) saturate(150%);
+  }
+
+  .task-row {
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
+    backdrop-filter: blur(14px) saturate(130%);
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
   }
 }
 

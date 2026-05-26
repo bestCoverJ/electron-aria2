@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "tsc -b && electron-vite build",
+    "build": "bun run typecheck && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --pretty && tsc --noEmit -p tsconfig.web.json --pretty",
     "lint": "eslint . --max-warnings=0"
