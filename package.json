@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "description": "Cross-platform aria2 download manager",
   "private": true,
-  "main": "./dist/main/index.js",
+  "main": "./out/main/index.js",
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "bun run typecheck && electron-vite build",
+    "pack": "bun run build && electron-builder --dir",
+    "dist": "bun run build && electron-builder",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --pretty && tsc --noEmit -p tsconfig.web.json --pretty",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "verify:aria2": "node scripts/verify-aria2-runtime.mjs",
+    "verify:downloads": "node scripts/verify-download-flows.mjs",
+    "verify:ui": "node scripts/verify-ui-contracts.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.2",
@@ -31,14 +36,64 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "electron": "^33.2.1",
+    "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "eslint": "^8.57.1",
-    "prettier": "^3.4.2",
     "postcss": "^8.4.49",
+    "prettier": "^3.4.2",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.7.2",
     "vite": "^6.0.5"
   },
-  "packageManager": "bun@1.2.15"
+  "packageManager": "bun@1.2.15",
+  "build": {
+    "appId": "com.tidex.downloads",
+    "productName": "Tide X",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/aria2",
+        "to": "aria2",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "resources/aria2/**"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "signAndEditExecutable": false,
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "category": "Network",
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+    }
+  }
 }

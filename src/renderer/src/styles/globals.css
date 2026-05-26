@@ -68,22 +68,7 @@
 
 @layer components {
   .app-surface {
-    background:
-      radial-gradient(
-        circle at 20% 15%,
-        hsl(173 80% 32% / 0.16),
-        transparent 28%
-      ),
-      radial-gradient(
-        circle at 82% 8%,
-        hsl(24 92% 52% / 0.12),
-        transparent 24%
-      ),
-      linear-gradient(
-        135deg,
-        hsl(var(--background) / 0.94),
-        hsl(174 42% 91% / 0.96)
-      );
+    background: hsl(var(--background) / 0.96);
   }
 
   .glass-panel {

@@ -47,8 +47,8 @@
 
 ## 7. Packaging and Verification
 
-- [ ] 7.1 Configure packaging to include aria2c binaries and runtime assets for Windows, macOS, and Linux.
-- [ ] 7.2 Add startup smoke checks that verify the packaged aria2c binary exists, is executable, and can serve local RPC.
-- [ ] 7.3 Verify application flows for add, pause, resume, remove, complete, fail, restart recovery, and settings persistence.
-- [ ] 7.4 Verify UI at desktop and narrow responsive widths, including light/dark themes, focus states, no horizontal overflow, and reduced-motion behavior.
-- [ ] 7.5 Document remaining release constraints for signing, notarization, antivirus false-positive handling, and platform-specific aria2 binary updates.
+- [x] 7.1 Configure packaging to include aria2c binaries and runtime assets for Windows, macOS, and Linux.
+- [x] 7.2 Add startup smoke checks that verify the packaged aria2c binary exists, is executable, and can serve local RPC.
+- [x] 7.3 Verify application flows for add, pause, resume, remove, complete, fail, restart recovery, and settings persistence.
+- [x] 7.4 Verify UI at desktop and narrow responsive widths, including light/dark themes, focus states, no horizontal overflow, and reduced-motion behavior.
+- [x] 7.5 Document remaining release constraints for signing, notarization, antivirus false-positive handling, and platform-specific aria2 binary updates.

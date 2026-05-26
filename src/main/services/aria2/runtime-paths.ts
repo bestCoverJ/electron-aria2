@@ -45,6 +45,18 @@ export async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+export async function isExecutableFile(path: string): Promise<boolean> {
+  try {
+    await access(
+      path,
+      process.platform === "win32" ? constants.F_OK : constants.X_OK,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureAria2DataFiles(
   paths: Aria2RuntimePaths,
 ): Promise<void> {

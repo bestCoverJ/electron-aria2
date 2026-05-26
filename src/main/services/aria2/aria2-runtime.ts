@@ -6,6 +6,7 @@ import { createServer } from "node:net";
 import { Aria2RpcClient } from "./rpc-client";
 import {
   ensureAria2DataFiles,
+  isExecutableFile,
   pathExists,
   resolveAria2RuntimePaths,
   type Aria2RuntimePaths,
@@ -71,6 +72,17 @@ export class Aria2Runtime {
       this.status = {
         availability: "unavailable",
         message: `Bundled aria2c binary was not found at ${this.paths.binaryPath}.`,
+        pid: null,
+        rpcPort: null,
+        startedAt: null,
+      };
+      return;
+    }
+
+    if (!(await isExecutableFile(this.paths.binaryPath))) {
+      this.status = {
+        availability: "unavailable",
+        message: `Bundled aria2c binary is not executable at ${this.paths.binaryPath}.`,
         pid: null,
         rpcPort: null,
         startedAt: null,
@@ -182,7 +194,6 @@ function buildAria2Args(
   const args = [
     "--enable-rpc=true",
     "--rpc-listen-all=false",
-    "--rpc-listen-address=127.0.0.1",
     `--rpc-listen-port=${rpcPort}`,
     `--rpc-secret=${secret}`,
     `--dir=${options.downloadDirectory}`,
