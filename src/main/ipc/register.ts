@@ -1,56 +1,65 @@
 import { ipcMain } from "electron";
 import type { AddDownloadInput, AppSettings } from "@shared/types";
 import type { Aria2Runtime } from "../services/aria2";
+import { DownloadManager } from "../services/downloads";
+import type { AppStore } from "../services/persistence";
 import { ipcChannels } from "./channels";
-import {
-  createDefaultSettings,
-  createEmptyTaskSnapshot,
-} from "../services/app-state";
+import { createEmptyTaskSnapshot } from "../services/app-state";
 
-let settings = createDefaultSettings();
+export function registerIpcHandlers(
+  runtime: Aria2Runtime,
+  store: AppStore,
+): void {
+  const downloads = new DownloadManager(runtime, store);
 
-export function getCurrentSettings(): AppSettings {
-  return settings;
-}
-
-export function registerIpcHandlers(runtime: Aria2Runtime): void {
-  ipcMain.handle(ipcChannels.settingsGet, () => settings);
+  ipcMain.handle(ipcChannels.settingsGet, () => store.getSettings());
 
   ipcMain.handle(
     ipcChannels.settingsUpdate,
-    (_event, patch: Partial<AppSettings>) => {
-      settings = { ...settings, ...patch };
+    async (_event, patch: Partial<AppSettings>) => {
+      const settings = await store.updateSettings(patch);
+      await runtime.applySettings(settings);
       return settings;
     },
   );
 
   ipcMain.handle(ipcChannels.runtimeGetStatus, () => runtime.getStatus());
 
-  ipcMain.handle(ipcChannels.downloadsGetSnapshot, () =>
-    createEmptyTaskSnapshot(runtime.getStatus()),
+  ipcMain.handle(ipcChannels.downloadsGetSnapshot, async () => {
+    if (runtime.getStatus().availability !== "ready") {
+      return createEmptyTaskSnapshot(runtime.getStatus());
+    }
+
+    return downloads.getSnapshot();
+  });
+
+  ipcMain.handle(ipcChannels.downloadsAdd, (_event, input: AddDownloadInput) =>
+    downloads.add(input),
   );
+
+  ipcMain.handle(ipcChannels.downloadsPause, (_event, gid: string) => {
+    return downloads.pause(gid);
+  });
+
+  ipcMain.handle(ipcChannels.downloadsResume, (_event, gid: string) => {
+    return downloads.resume(gid);
+  });
 
   ipcMain.handle(
-    ipcChannels.downloadsAdd,
-    (_event, input: AddDownloadInput) => {
-      if (!input.source.trim()) {
-        throw new Error("Download source is required.");
-      }
-
-      runtime.getClient();
-      throw new Error("Download task creation is not implemented yet.");
-    },
+    ipcChannels.downloadsRemove,
+    (_event, gid: string, options?: { removeFiles?: boolean }) =>
+      downloads.remove(gid, options),
   );
 
-  ipcMain.handle(ipcChannels.downloadsPause, () => {
-    throw new Error("Download controls are not implemented yet.");
-  });
+  ipcMain.handle(ipcChannels.downloadsRetry, (_event, gid: string) =>
+    downloads.retry(gid),
+  );
 
-  ipcMain.handle(ipcChannels.downloadsResume, () => {
-    throw new Error("Download controls are not implemented yet.");
-  });
+  ipcMain.handle(ipcChannels.downloadsRevealFile, (_event, gid: string) =>
+    downloads.revealFile(gid),
+  );
 
-  ipcMain.handle(ipcChannels.downloadsRemove, () => {
-    throw new Error("Download controls are not implemented yet.");
-  });
+  ipcMain.handle(ipcChannels.downloadsRevealFolder, (_event, gid: string) =>
+    downloads.revealFolder(gid),
+  );
 }

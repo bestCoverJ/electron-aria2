@@ -25,6 +25,17 @@ export interface AppSettings {
   advancedAria2Options: Record<string, string>;
 }
 
+export interface DownloadTaskMetadata {
+  gid: string;
+  source: string;
+  displayName: string | null;
+  directory: string | null;
+  userNote: string | null;
+  removeFilesOnDelete: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RuntimeStatus {
   availability: RuntimeAvailability;
   message: string | null;
@@ -79,6 +90,10 @@ export interface AddDownloadInput {
   directory?: string;
 }
 
+export interface RemoveDownloadOptions {
+  removeFiles?: boolean;
+}
+
 export interface TideApi {
   settings: {
     get(): Promise<AppSettings>;
@@ -91,7 +106,10 @@ export interface TideApi {
     add(input: AddDownloadInput): Promise<{ gid: string }>;
     pause(gid: string): Promise<void>;
     resume(gid: string): Promise<void>;
-    remove(gid: string, options?: { removeFiles?: boolean }): Promise<void>;
+    remove(gid: string, options?: RemoveDownloadOptions): Promise<void>;
+    retry(gid: string): Promise<{ gid: string }>;
+    revealFile(gid: string): Promise<void>;
+    revealFolder(gid: string): Promise<void>;
     getSnapshot(): Promise<TaskSnapshot>;
   };
 }

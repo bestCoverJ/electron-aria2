@@ -1,7 +1,8 @@
 import { app, BrowserWindow, nativeTheme } from "electron";
 import { join } from "node:path";
-import { getCurrentSettings, registerIpcHandlers } from "./ipc/register";
+import { registerIpcHandlers } from "./ipc/register";
 import { Aria2Runtime } from "./services/aria2";
+import { AppStore } from "./services/persistence";
 
 let mainWindow: BrowserWindow | null = null;
 const aria2Runtime = new Aria2Runtime();
@@ -35,8 +36,9 @@ function createMainWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  registerIpcHandlers(aria2Runtime);
-  await aria2Runtime.start(getCurrentSettings());
+  const appStore = new AppStore();
+  registerIpcHandlers(aria2Runtime, appStore);
+  await aria2Runtime.start(appStore.getSettings());
   createMainWindow();
 
   app.on("activate", () => {

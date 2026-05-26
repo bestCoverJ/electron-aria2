@@ -6,6 +6,9 @@ export const ipcChannels = {
   downloadsPause: "downloads:pause",
   downloadsResume: "downloads:resume",
   downloadsRemove: "downloads:remove",
+  downloadsRetry: "downloads:retry",
+  downloadsRevealFile: "downloads:reveal-file",
+  downloadsRevealFolder: "downloads:reveal-folder",
   downloadsGetSnapshot: "downloads:get-snapshot",
 } as const;
 

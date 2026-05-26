@@ -15,19 +15,19 @@
 
 ## 3. Local Persistence and Settings
 
-- [ ] 3.1 Implement local settings persistence for download directory, concurrency, connection count, speed limits, proxy, theme, and shutdown behavior.
-- [ ] 3.2 Implement local task metadata persistence for display name, history, user annotations, and file-retention choices.
-- [ ] 3.3 Apply settings changes to aria2 at runtime where supported.
-- [ ] 3.4 Add validation for paths, numeric limits, proxy values, and advanced aria2 options.
+- [x] 3.1 Implement local settings persistence for download directory, concurrency, connection count, speed limits, proxy, theme, and shutdown behavior.
+- [x] 3.2 Implement local task metadata persistence for display name, history, user annotations, and file-retention choices.
+- [x] 3.3 Apply settings changes to aria2 at runtime where supported.
+- [x] 3.4 Add validation for paths, numeric limits, proxy values, and advanced aria2 options.
 
 ## 4. Download Task Management
 
-- [ ] 4.1 Implement task input parsing and validation for HTTP/HTTPS URLs, torrent files, Magnet links, and Metalink inputs.
-- [ ] 4.2 Implement add-task commands that map validated inputs to aria2 RPC calls with the current default settings.
-- [ ] 4.3 Implement pause, resume, remove, retry, and reveal-file/reveal-folder operations.
-- [ ] 4.4 Implement task state projection from aria2 status into `queued`, `active`, `paused`, `completed`, `failed`, `removed`, and `seeding`.
-- [ ] 4.5 Implement task snapshot polling or event refresh and normalize progress, speed, remaining time, file list, connections, and error details.
-- [ ] 4.6 Implement queue and speed-limit behavior using aria2 global and per-task options.
+- [x] 4.1 Implement task input parsing and validation for HTTP/HTTPS URLs, torrent files, Magnet links, and Metalink inputs.
+- [x] 4.2 Implement add-task commands that map validated inputs to aria2 RPC calls with the current default settings.
+- [x] 4.3 Implement pause, resume, remove, retry, and reveal-file/reveal-folder operations.
+- [x] 4.4 Implement task state projection from aria2 status into `queued`, `active`, `paused`, `completed`, `failed`, `removed`, and `seeding`.
+- [x] 4.5 Implement task snapshot polling or event refresh and normalize progress, speed, remaining time, file list, connections, and error details.
+- [x] 4.6 Implement queue and speed-limit behavior using aria2 global and per-task options.
 
 ## 5. Renderer UI
 

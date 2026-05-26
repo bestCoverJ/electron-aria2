@@ -51,6 +51,16 @@ export class Aria2Runtime {
     return this.client;
   }
 
+  async applySettings(options: Aria2RuntimeStartOptions): Promise<void> {
+    this.lastStartOptions = options;
+
+    if (!this.client || this.status.availability !== "ready") {
+      return;
+    }
+
+    await this.client.changeGlobalOption(buildRuntimeGlobalOptions(options));
+  }
+
   async start(options: Aria2RuntimeStartOptions): Promise<void> {
     this.lastStartOptions = options;
     this.isShuttingDown = false;
@@ -201,6 +211,44 @@ function buildAria2Args(
   }
 
   return args;
+}
+
+function buildRuntimeGlobalOptions(
+  options: Aria2RuntimeStartOptions,
+): Record<string, string> {
+  const globalOptions: Record<string, string> = {
+    dir: options.downloadDirectory,
+    "max-concurrent-downloads": String(options.maxConcurrentDownloads),
+    "max-connection-per-server": String(options.connectionsPerTask),
+  };
+
+  if (options.globalDownloadLimit !== null) {
+    globalOptions["max-overall-download-limit"] = String(
+      options.globalDownloadLimit,
+    );
+  } else {
+    globalOptions["max-overall-download-limit"] = "0";
+  }
+
+  if (options.globalUploadLimit !== null) {
+    globalOptions["max-overall-upload-limit"] = String(
+      options.globalUploadLimit,
+    );
+  } else {
+    globalOptions["max-overall-upload-limit"] = "0";
+  }
+
+  if (options.proxyUrl) {
+    globalOptions["all-proxy"] = options.proxyUrl;
+  } else {
+    globalOptions["all-proxy"] = "";
+  }
+
+  for (const [key, value] of Object.entries(options.advancedAria2Options)) {
+    globalOptions[key] = value;
+  }
+
+  return globalOptions;
 }
 
 async function getOrCreateSecret(secretFile: string): Promise<string> {

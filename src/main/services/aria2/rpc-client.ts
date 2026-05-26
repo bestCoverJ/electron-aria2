@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 export interface Aria2RpcOptions {
   endpoint: string;
   secret: string;
@@ -74,5 +76,91 @@ export class Aria2RpcClient {
   shutdown(): Promise<string> {
     return this.call<string>({ method: "aria2.shutdown" });
   }
+
+  changeGlobalOption(options: Record<string, string>): Promise<string> {
+    return this.call<string, [Record<string, string>]>({
+      method: "aria2.changeGlobalOption",
+      params: [options],
+    });
+  }
+
+  addUri(uris: string[], options: Record<string, string>): Promise<string> {
+    return this.call<string, [string[], Record<string, string>]>({
+      method: "aria2.addUri",
+      params: [uris, options],
+    });
+  }
+
+  addTorrent(
+    torrentBase64: string,
+    options: Record<string, string>,
+  ): Promise<string> {
+    return this.call<string, [string, string[], Record<string, string>]>({
+      method: "aria2.addTorrent",
+      params: [torrentBase64, [], options],
+    });
+  }
+
+  addMetalink(
+    metalinkBase64: string,
+    options: Record<string, string>,
+  ): Promise<string> {
+    return this.call<string, [string, Record<string, string>]>({
+      method: "aria2.addMetalink",
+      params: [metalinkBase64, options],
+    });
+  }
+
+  pause(gid: string): Promise<string> {
+    return this.call<string, [string]>({
+      method: "aria2.pause",
+      params: [gid],
+    });
+  }
+
+  unpause(gid: string): Promise<string> {
+    return this.call<string, [string]>({
+      method: "aria2.unpause",
+      params: [gid],
+    });
+  }
+
+  remove(gid: string): Promise<string> {
+    return this.call<string, [string]>({
+      method: "aria2.remove",
+      params: [gid],
+    });
+  }
+
+  forceRemove(gid: string): Promise<string> {
+    return this.call<string, [string]>({
+      method: "aria2.forceRemove",
+      params: [gid],
+    });
+  }
+
+  removeDownloadResult(gid: string): Promise<string> {
+    return this.call<string, [string]>({
+      method: "aria2.removeDownloadResult",
+      params: [gid],
+    });
+  }
+
+  tellActive<TResult>(): Promise<TResult[]> {
+    return this.call<TResult[]>({ method: "aria2.tellActive" });
+  }
+
+  tellWaiting<TResult>(offset = 0, count = 1000): Promise<TResult[]> {
+    return this.call<TResult[], [number, number]>({
+      method: "aria2.tellWaiting",
+      params: [offset, count],
+    });
+  }
+
+  tellStopped<TResult>(offset = 0, count = 1000): Promise<TResult[]> {
+    return this.call<TResult[], [number, number]>({
+      method: "aria2.tellStopped",
+      params: [offset, count],
+    });
+  }
 }
-import { randomUUID } from "node:crypto";
