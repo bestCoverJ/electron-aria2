@@ -1,0 +1,71 @@
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 174 72% 97%;
+    --foreground: 176 60% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 176 60% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 176 60% 18%;
+    --primary: 173 80% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 172 66% 50%;
+    --secondary-foreground: 176 60% 18%;
+    --muted: 174 45% 92%;
+    --muted-foreground: 176 28% 34%;
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 174 28% 82%;
+    --input: 174 28% 82%;
+    --ring: 173 80% 32%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 176 65% 8%;
+    --foreground: 174 72% 97%;
+    --card: 176 54% 11%;
+    --card-foreground: 174 72% 97%;
+    --popover: 176 54% 11%;
+    --popover-foreground: 174 72% 97%;
+    --primary: 172 66% 50%;
+    --primary-foreground: 176 65% 8%;
+    --secondary: 176 42% 18%;
+    --secondary-foreground: 174 72% 97%;
+    --muted: 176 42% 18%;
+    --muted-foreground: 174 24% 72%;
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 176 36% 22%;
+    --input: 176 36% 22%;
+    --ring: 172 66% 50%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

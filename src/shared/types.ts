@@ -1,0 +1,97 @@
+export type ThemePreference = "system" | "light" | "dark";
+
+export type ShutdownBehavior = "ask" | "minimize-to-tray" | "quit";
+
+export type RuntimeAvailability = "starting" | "ready" | "unavailable";
+
+export type DownloadTaskState =
+  | "queued"
+  | "active"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "removed"
+  | "seeding";
+
+export interface AppSettings {
+  downloadDirectory: string;
+  maxConcurrentDownloads: number;
+  connectionsPerTask: number;
+  globalDownloadLimit: number | null;
+  globalUploadLimit: number | null;
+  proxyUrl: string | null;
+  theme: ThemePreference;
+  shutdownBehavior: ShutdownBehavior;
+  advancedAria2Options: Record<string, string>;
+}
+
+export interface RuntimeStatus {
+  availability: RuntimeAvailability;
+  message: string | null;
+  pid: number | null;
+  rpcPort: number | null;
+  startedAt: string | null;
+}
+
+export interface DownloadTaskFile {
+  index: number;
+  path: string;
+  length: number;
+  completedLength: number;
+  selected: boolean;
+}
+
+export interface DownloadTask {
+  gid: string;
+  name: string;
+  state: DownloadTaskState;
+  progress: number;
+  totalLength: number | null;
+  completedLength: number;
+  downloadSpeed: number;
+  uploadSpeed: number;
+  connections: number;
+  remainingSeconds: number | null;
+  files: DownloadTaskFile[];
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TransferSummary {
+  activeCount: number;
+  queuedCount: number;
+  completedCount: number;
+  failedCount: number;
+  downloadSpeed: number;
+  uploadSpeed: number;
+}
+
+export interface TaskSnapshot {
+  tasks: DownloadTask[];
+  summary: TransferSummary;
+  runtime: RuntimeStatus;
+  capturedAt: string;
+}
+
+export interface AddDownloadInput {
+  source: string;
+  directory?: string;
+}
+
+export interface TideApi {
+  settings: {
+    get(): Promise<AppSettings>;
+    update(patch: Partial<AppSettings>): Promise<AppSettings>;
+  };
+  runtime: {
+    getStatus(): Promise<RuntimeStatus>;
+  };
+  downloads: {
+    add(input: AddDownloadInput): Promise<{ gid: string }>;
+    pause(gid: string): Promise<void>;
+    resume(gid: string): Promise<void>;
+    remove(gid: string, options?: { removeFiles?: boolean }): Promise<void>;
+    getSnapshot(): Promise<TaskSnapshot>;
+  };
+}
