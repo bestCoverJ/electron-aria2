@@ -40,10 +40,10 @@
 
 ## 6. Desktop Integration
 
-- [ ] 6.1 Implement tray menu behavior for show, pause all, resume all, and quit.
-- [ ] 6.2 Implement close-to-tray behavior when downloads are active and explicit quit behavior from menu or tray.
-- [ ] 6.3 Implement desktop notifications for completed and failed downloads.
-- [ ] 6.4 Implement open-file and reveal-in-folder behavior with platform-specific safeguards.
+- [x] 6.1 Implement tray menu behavior for show, pause all, resume all, and quit.
+- [x] 6.2 Implement close-to-tray behavior when downloads are active and explicit quit behavior from menu or tray.
+- [x] 6.3 Implement desktop notifications for completed and failed downloads.
+- [x] 6.4 Implement open-file and reveal-in-folder behavior with platform-specific safeguards.
 
 ## 7. Packaging and Verification
 

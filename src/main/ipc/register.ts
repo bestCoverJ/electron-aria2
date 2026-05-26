@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import type { AddDownloadInput, AppSettings } from "@shared/types";
 import type { Aria2Runtime } from "../services/aria2";
-import { DownloadManager } from "../services/downloads";
+import type { DownloadManager } from "../services/downloads";
 import type { AppStore } from "../services/persistence";
 import { ipcChannels } from "./channels";
 import { createEmptyTaskSnapshot } from "../services/app-state";
@@ -9,9 +9,8 @@ import { createEmptyTaskSnapshot } from "../services/app-state";
 export function registerIpcHandlers(
   runtime: Aria2Runtime,
   store: AppStore,
+  downloads: DownloadManager,
 ): void {
-  const downloads = new DownloadManager(runtime, store);
-
   ipcMain.handle(ipcChannels.settingsGet, () => store.getSettings());
 
   ipcMain.handle(

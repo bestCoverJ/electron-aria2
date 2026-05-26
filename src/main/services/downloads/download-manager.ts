@@ -4,11 +4,11 @@ import type {
   TaskSnapshot,
 } from "@shared/types";
 import { shell } from "electron";
+import { access, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { Aria2Runtime } from "../aria2";
 import type { AppStore } from "../persistence";
 import type { Aria2Task } from "./aria2-types";
-import { rm } from "node:fs/promises";
 import { parseDownloadInput } from "./task-input";
 import { createTaskSnapshot } from "./task-projection";
 
@@ -46,6 +46,24 @@ export class DownloadManager {
 
   async resume(gid: string): Promise<void> {
     await this.runtime.getClient().unpause(gid);
+  }
+
+  async pauseAll(): Promise<void> {
+    const tasks = await this.getRawTasks();
+    await Promise.all(
+      tasks
+        .filter((task) => task.status === "active")
+        .map((task) => this.runtime.getClient().pause(task.gid)),
+    );
+  }
+
+  async resumeAll(): Promise<void> {
+    const tasks = await this.getRawTasks();
+    await Promise.all(
+      tasks
+        .filter((task) => task.status === "paused")
+        .map((task) => this.runtime.getClient().unpause(task.gid)),
+    );
   }
 
   async remove(
@@ -107,6 +125,7 @@ export class DownloadManager {
       throw new Error("No downloaded file path is available for this task.");
     }
 
+    await assertPathAccessible(filePath);
     shell.showItemInFolder(filePath);
   }
 
@@ -120,7 +139,12 @@ export class DownloadManager {
       throw new Error("No download folder is available for this task.");
     }
 
-    await shell.openPath(folder);
+    await assertPathAccessible(folder);
+    const openError = await shell.openPath(folder);
+
+    if (openError) {
+      throw new Error(openError);
+    }
   }
 
   async getSnapshot(): Promise<TaskSnapshot> {
@@ -152,5 +176,13 @@ export class DownloadManager {
     ]);
 
     return [...active, ...waiting, ...stopped];
+  }
+}
+
+async function assertPathAccessible(path: string): Promise<void> {
+  try {
+    await access(path);
+  } catch {
+    throw new Error(`Path is not accessible: ${path}`);
   }
 }
