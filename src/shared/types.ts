@@ -55,6 +55,8 @@ export interface DownloadTaskFile {
 
 export interface DownloadTask {
   gid: string;
+  source: string;
+  directory: string | null;
   name: string;
   state: DownloadTaskState;
   progress: number;
@@ -125,6 +127,9 @@ export interface TideApi {
     resume(gid: string): Promise<void>;
     remove(gid: string, options?: RemoveDownloadOptions): Promise<void>;
     retry(gid: string): Promise<{ gid: string }>;
+    clearAll(): Promise<void>;
+    clearCompleted(): Promise<void>;
+    retryFailed(): Promise<void>;
     revealFile(gid: string): Promise<void>;
     revealFolder(gid: string): Promise<void>;
     getSnapshot(): Promise<TaskSnapshot>;

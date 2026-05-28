@@ -1,5 +1,5 @@
 import type { AddDownloadInput, AppSettings } from "@shared/types";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { extname, isAbsolute } from "node:path";
 
 export type ParsedDownloadInput =
@@ -28,16 +28,19 @@ export async function parseDownloadInput(
   const source = input.source.trim();
 
   if (!source) {
-    throw new Error("Download source is required.");
+    throw new Error("请输入下载任务来源。");
   }
 
   const options = createTaskOptions(input, settings);
+  await mkdir(options.dir, { recursive: true });
 
   if (isHttpUrl(source) || isMagnetLink(source)) {
     return {
       kind: "uri",
       source,
-      options,
+      options: isHttpUrl(source)
+        ? addHttpCompatibilityOptions(source, options)
+        : options,
     };
   }
 
@@ -64,7 +67,7 @@ export async function parseDownloadInput(
   }
 
   throw new Error(
-    "Unsupported download input. Use HTTP/HTTPS, Magnet, torrent, or Metalink.",
+    "不支持的下载任务来源。请使用 HTTP/HTTPS、Magnet、torrent 或 Metalink。",
   );
 }
 
@@ -90,10 +93,32 @@ function createTaskOptions(
   }
 
   for (const [key, value] of Object.entries(settings.advancedAria2Options)) {
+    if (isReservedRuntimeOption(key)) {
+      continue;
+    }
+
     options[key] = value;
   }
 
   return options;
+}
+
+function addHttpCompatibilityOptions(
+  source: string,
+  options: Record<string, string>,
+): Record<string, string> {
+  const url = new URL(source);
+  return {
+    ...options,
+    referer: options.referer ?? `${url.origin}/`,
+    "user-agent":
+      options["user-agent"] ??
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 TideX/0.1.0",
+  };
+}
+
+function isReservedRuntimeOption(key: string): boolean {
+  return key === "enable-rpc" || key.startsWith("rpc-");
 }
 
 function isHttpUrl(source: string): boolean {

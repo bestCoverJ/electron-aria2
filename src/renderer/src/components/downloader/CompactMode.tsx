@@ -43,7 +43,7 @@ export function CompactMode({
               <p className="text-xs text-muted-foreground">双击恢复完整模式</p>
             </div>
           </div>
-          <Badge variant="outline">{snapshot.summary.activeCount} active</Badge>
+          <Badge variant="outline">{snapshot.summary.activeCount} 个活动</Badge>
         </div>
         <div className="mt-5">
           <div className="mb-2 flex items-center justify-between text-sm">

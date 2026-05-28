@@ -39,6 +39,8 @@ function projectTask(
 
   return {
     gid: task.gid,
+    source: metadata?.source ?? task.gid,
+    directory: metadata?.directory ?? null,
     name: metadata?.displayName ?? inferTaskName(task, metadata),
     state: projectTaskState(task),
     progress,

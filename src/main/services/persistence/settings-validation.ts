@@ -101,8 +101,16 @@ function validateAdvancedOptions(options: Record<string, string>): void {
       throw new Error(`Invalid aria2 option name: ${key}.`);
     }
 
+    if (isReservedRuntimeOption(key)) {
+      throw new Error(`aria2 option ${key} is managed by Tide X.`);
+    }
+
     if (value.includes("\n") || value.includes("\r")) {
       throw new Error(`Invalid aria2 option value for ${key}.`);
     }
   }
+}
+
+function isReservedRuntimeOption(key: string): boolean {
+  return key === "enable-rpc" || key.startsWith("rpc-");
 }

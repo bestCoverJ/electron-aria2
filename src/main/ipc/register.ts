@@ -87,6 +87,16 @@ export function registerIpcHandlers(
     downloads.retry(gid),
   );
 
+  ipcMain.handle(ipcChannels.downloadsClearAll, () => downloads.clearAll());
+
+  ipcMain.handle(ipcChannels.downloadsClearCompleted, () =>
+    downloads.clearCompleted(),
+  );
+
+  ipcMain.handle(ipcChannels.downloadsRetryFailed, () =>
+    downloads.retryFailed(),
+  );
+
   ipcMain.handle(ipcChannels.downloadsRevealFile, (_event, gid: string) =>
     downloads.revealFile(gid),
   );

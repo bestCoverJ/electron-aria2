@@ -6,8 +6,9 @@
 ## Product Surface
 
 Tide X is a cross-platform desktop download manager. The first screen is the
-operational dashboard, not a landing page. The interface must make active
-downloads, queue state, speed, task actions, and settings immediately visible.
+operational dashboard, not a landing page. The interface language is Simplified
+Chinese by default and must make active downloads, queue state, speed, task
+actions, and settings immediately visible.
 
 ## Stack Rules
 
@@ -32,15 +33,17 @@ downloads, queue state, speed, task actions, and settings immediately visible.
 - The persistent shell layout is:
   - Left: immersive menu with Download List, History, Trash, and Settings.
   - Center: the list or settings content for the selected menu item.
-  - Right: selected task/file details when a list item is selected; for
-    Settings, show application and engine summary details.
+  - Right: selected task/file details only after a list item is selected. The
+    panel is not reserved by default; the center list fills the available width
+    and resets when the left menu changes.
   - Bottom: a status/task bar with overall progress, current speed, speed trend,
     and download engine connection state.
 - Support a collapsed sidebar for dense desktop work.
 - Support compact mode as an actual window mode, not just a smaller page layout:
   entering compact mode resizes the Electron BrowserWindow, removes the native
   frame, shows current progress and speed summary, and double-clicking restores
-  the full framed dashboard.
+  the full framed dashboard. Compact mode controls should not duplicate engine
+  status in the left menu.
 - At narrow widths, hide secondary detail surfaces before introducing horizontal
   scrolling. The primary task list remains usable.
 
@@ -105,11 +108,16 @@ downloads, queue state, speed, task actions, and settings immediately visible.
 - Settings: group basic download limits, proxy, appearance, advanced aria2
   options, and shutdown behavior with direct labels.
 - Detail panel: selected downloads expose Overview, Files, Peers, and Log tabs.
+  Do not auto-select the first row; no row selection means no details content.
+- Status bar: show Download Engine only in the bottom bar, without secondary
+  affordance icons. Speed trend visuals must be derived from active transfer
+  speed and remain blank when there is no active download speed. Engine text
+  must state success or failure, e.g. `引擎连接成功` or `引擎加载失败`.
 - Empty/loading/unavailable/error states must include a direct next action when
   action is possible.
 - Directory inputs: clicking the save-directory control opens the native folder
-  picker. The field must also allow manual typing and expose recent directory
-  history for quick reuse.
+  picker through an icon button. The field must also allow manual typing and
+  expose recent directory history through an editable dropdown for quick reuse.
 - Download creation errors must be normalized into clear user-facing messages;
   raw JavaScript property access errors such as
   `Cannot read properties of undefined (reading 'downloads')` must never be
@@ -122,8 +130,9 @@ downloads, queue state, speed, task actions, and settings immediately visible.
 - Download List, History, Trash, and Settings are reachable from the left menu
   without opening modal settings pages.
 - The bottom status/task bar always shows overall progress, speed, speed trend,
-  and engine connection state.
-- Sidebar collapse and compact mode work with keyboard-accessible controls.
+  and engine connection state. The speed trend is blank when no task is moving.
+- Sidebar does not duplicate bottom engine state, connection state, or compact
+  controls.
 - Compact mode changes the actual Electron window size/frame state, shows
   current progress, and restores the full framed dashboard on double-click.
 - Focus rings are visible on sidebar items, task actions, dialogs, and settings.

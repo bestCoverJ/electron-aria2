@@ -43,7 +43,10 @@ export class DesktopIntegration {
     const settings = this.store.getSettings();
     const hasActiveDownloads = await this.hasActiveDownloads();
 
-    if (!hasActiveDownloads && settings.shutdownBehavior === "quit") {
+    if (
+      !hasActiveDownloads &&
+      settings.shutdownBehavior !== "minimize-to-tray"
+    ) {
       this.quit();
       return;
     }

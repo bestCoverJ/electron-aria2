@@ -24,6 +24,8 @@ export interface Aria2RuntimeStartOptions {
 
 export class Aria2Runtime {
   private readonly maxRestartAttempts = 1;
+  private readonly rpcReadyTimeoutMs = 5000;
+  private readonly shutdownTimeoutMs = 3000;
 
   private status: RuntimeStatus = {
     availability: "starting",
@@ -107,22 +109,9 @@ export class Aria2Runtime {
       windowsHide: true,
     });
 
-    this.process.once("spawn", () => {
-      this.restartAttempts = 0;
-      this.client = new Aria2RpcClient({
-        endpoint: `http://127.0.0.1:${rpcPort}/jsonrpc`,
-        secret,
-      });
-      this.status = {
-        availability: "ready",
-        message: null,
-        pid: this.process?.pid ?? null,
-        rpcPort,
-        startedAt: new Date().toISOString(),
-      };
-    });
+    const child = this.process;
 
-    this.process.once("error", (error) => {
+    child.once("error", (error) => {
       this.status = {
         availability: "unavailable",
         message: error.message,
@@ -132,33 +121,50 @@ export class Aria2Runtime {
       };
     });
 
-    this.process.once("exit", (code, signal) => {
-      this.client = null;
-      this.process = null;
-      const canRetry =
-        !this.isShuttingDown &&
-        this.lastStartOptions !== null &&
-        this.restartAttempts < this.maxRestartAttempts;
+    child.once("exit", (code, signal) => this.handleProcessExit(code, signal));
 
+    try {
+      await waitForChildSpawn(child);
+    } catch {
+      return;
+    }
+
+    const client = new Aria2RpcClient({
+      endpoint: `http://127.0.0.1:${rpcPort}/jsonrpc`,
+      secret,
+    });
+    this.client = client;
+
+    try {
+      await waitForRpcReady(client, this.rpcReadyTimeoutMs);
+    } catch (error) {
+      this.client = null;
       this.status = {
-        availability: canRetry ? "starting" : "unavailable",
-        message: `aria2 exited${code === null ? "" : ` with code ${code}`}${
-          signal ? ` and signal ${signal}` : ""
-        }.${canRetry ? " Restarting runtime." : ""}`,
+        availability: "unavailable",
+        message: `aria2 RPC did not become ready: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
         pid: null,
         rpcPort: null,
         startedAt: null,
       };
+      child.kill();
+      return;
+    }
 
-      if (canRetry) {
-        this.restartAttempts += 1;
-        setTimeout(() => {
-          if (this.lastStartOptions) {
-            void this.start(this.lastStartOptions);
-          }
-        }, 1000);
-      }
-    });
+    if (this.isShuttingDown) {
+      await this.shutdown();
+      return;
+    }
+
+    this.restartAttempts = 0;
+    this.status = {
+      availability: "ready",
+      message: null,
+      pid: child.pid ?? null,
+      rpcPort,
+      startedAt: new Date().toISOString(),
+    };
   }
 
   async saveSession(): Promise<void> {
@@ -172,7 +178,9 @@ export class Aria2Runtime {
   async shutdown(): Promise<void> {
     this.isShuttingDown = true;
 
-    if (!this.process) {
+    const child = this.process;
+
+    if (!child) {
       return;
     }
 
@@ -180,7 +188,45 @@ export class Aria2Runtime {
       await this.saveSession();
       await this.client?.shutdown();
     } catch {
-      this.process.kill();
+      child.kill();
+    }
+
+    const exited = await waitForProcessExit(child, this.shutdownTimeoutMs);
+
+    if (!exited && child.exitCode === null) {
+      child.kill();
+      await waitForProcessExit(child, 1000);
+    }
+  }
+
+  private handleProcessExit(
+    code: number | null,
+    signal: NodeJS.Signals | null,
+  ): void {
+    this.client = null;
+    this.process = null;
+    const canRetry =
+      !this.isShuttingDown &&
+      this.lastStartOptions !== null &&
+      this.restartAttempts < this.maxRestartAttempts;
+
+    this.status = {
+      availability: canRetry ? "starting" : "unavailable",
+      message: `aria2 exited${code === null ? "" : ` with code ${code}`}${
+        signal ? ` and signal ${signal}` : ""
+      }.${canRetry ? " Restarting runtime." : ""}`,
+      pid: null,
+      rpcPort: null,
+      startedAt: null,
+    };
+
+    if (canRetry) {
+      this.restartAttempts += 1;
+      setTimeout(() => {
+        if (this.lastStartOptions) {
+          void this.start(this.lastStartOptions);
+        }
+      }, 1000);
     }
   }
 }
@@ -218,6 +264,10 @@ function buildAria2Args(
   }
 
   for (const [key, value] of Object.entries(options.advancedAria2Options)) {
+    if (isReservedRuntimeOption(key)) {
+      continue;
+    }
+
     args.push(`--${key}=${value}`);
   }
 
@@ -256,10 +306,91 @@ function buildRuntimeGlobalOptions(
   }
 
   for (const [key, value] of Object.entries(options.advancedAria2Options)) {
+    if (isReservedRuntimeOption(key)) {
+      continue;
+    }
+
     globalOptions[key] = value;
   }
 
   return globalOptions;
+}
+
+function isReservedRuntimeOption(key: string): boolean {
+  return key === "enable-rpc" || key.startsWith("rpc-");
+}
+
+function waitForChildSpawn(
+  child: ChildProcessWithoutNullStreams,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (child.spawnfile) {
+      resolve();
+      return;
+    }
+
+    child.once("spawn", resolve);
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      reject(
+        new Error(
+          `aria2 exited before spawn completed${
+            code === null ? "" : ` with code ${code}`
+          }${signal ? ` and signal ${signal}` : ""}.`,
+        ),
+      );
+    });
+  });
+}
+
+async function waitForRpcReady(
+  client: Aria2RpcClient,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+
+  while (Date.now() < deadline) {
+    try {
+      await client.call({ method: "aria2.getVersion" });
+      return;
+    } catch (error) {
+      lastError = error;
+      await delay(120);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("timeout");
+}
+
+function waitForProcessExit(
+  child: ChildProcessWithoutNullStreams,
+  timeoutMs: number,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (child.exitCode !== null) {
+      resolve(true);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      child.off("exit", onExit);
+      resolve(false);
+    }, timeoutMs);
+
+    const onExit = (): void => {
+      clearTimeout(timeout);
+      resolve(true);
+    };
+
+    child.once("exit", onExit);
+  });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function getOrCreateSecret(secretFile: string): Promise<string> {

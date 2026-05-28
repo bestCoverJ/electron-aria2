@@ -10,8 +10,15 @@ let mainWindow: BrowserWindow | null = null;
 const aria2Runtime = new Aria2Runtime();
 let desktopIntegration: DesktopIntegration | null = null;
 let isRecreatingWindow = false;
+let isQuitFinalized = false;
 let currentWindowMode: "full" | "compact" = "full";
 let lastFullBounds: Rectangle | null = null;
+
+const singleInstanceLock = app.requestSingleInstanceLock();
+
+if (!singleInstanceLock) {
+  app.exit(0);
+}
 
 function createMainWindow(
   mode: "full" | "compact" = currentWindowMode,
@@ -41,10 +48,10 @@ function createMainWindow(
     visualEffectState: process.platform === "darwin" ? "active" : undefined,
     show: false,
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      preload: join(__dirname, "../preload/index.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false,
     },
   });
 
@@ -114,6 +121,15 @@ app.whenReady().then(async () => {
   desktopIntegration.initialize();
   createMainWindow();
 
+  app.on("second-instance", () => {
+    if (mainWindow?.isMinimized()) {
+      mainWindow.restore();
+    }
+
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
@@ -127,7 +143,15 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if (isQuitFinalized) {
+    return;
+  }
+
+  event.preventDefault();
   desktopIntegration?.beginQuit();
-  void aria2Runtime.shutdown();
+  void aria2Runtime.shutdown().finally(() => {
+    isQuitFinalized = true;
+    app.quit();
+  });
 });

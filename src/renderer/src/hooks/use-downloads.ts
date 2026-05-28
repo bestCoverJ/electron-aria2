@@ -20,7 +20,7 @@ const fallbackSnapshot: TaskSnapshot = {
   },
   runtime: {
     availability: "unavailable",
-    message: "Runtime status is unavailable.",
+    message: "运行状态不可用。",
     pid: null,
     rpcPort: null,
     startedAt: null,
@@ -87,14 +87,37 @@ export function useDownloads() {
         await tide.downloads.retry(gid);
         await refresh();
       },
+      clearAll: async () => {
+        await getTideApi().downloads.clearAll();
+        await refresh();
+      },
+      clearCompleted: async () => {
+        await getTideApi().downloads.clearCompleted();
+        await refresh();
+      },
+      retryFailed: async () => {
+        await getTideApi().downloads.retryFailed();
+        await refresh();
+      },
       revealFile: (gid: string) => getTideApi().downloads.revealFile(gid),
       revealFolder: (gid: string) => getTideApi().downloads.revealFolder(gid),
       selectDirectory: (
         options?: SelectDirectoryOptions,
-      ): Promise<SelectDirectoryResult> =>
-        getTideApi().settings.selectDirectory(options),
-      enterCompactMode: () => getTideApi().appWindow.enterCompactMode(),
-      exitCompactMode: () => getTideApi().appWindow.exitCompactMode(),
+      ): Promise<SelectDirectoryResult> => {
+        const selectDirectory = getTideApi().settings.selectDirectory;
+
+        if (!selectDirectory) {
+          throw new Error(
+            "文件夹选择服务暂不可用，请确认正在 Tide X 桌面窗口中运行。",
+          );
+        }
+
+        return selectDirectory(options);
+      },
+      enterCompactMode: () =>
+        getTideApi().appWindow?.enterCompactMode?.() ?? Promise.resolve(),
+      exitCompactMode: () =>
+        getTideApi().appWindow?.exitCompactMode?.() ?? Promise.resolve(),
       updateSettings: async (patch: Partial<AppSettings>) => {
         const nextSettings = await getTideApi().settings.update(patch);
         setSettings(nextSettings);

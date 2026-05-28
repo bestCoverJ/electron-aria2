@@ -33,6 +33,10 @@ const tideApi: TideApi = {
     remove: (gid: string, options?: { removeFiles?: boolean }) =>
       ipcRenderer.invoke(ipcChannels.downloadsRemove, gid, options),
     retry: (gid: string) => ipcRenderer.invoke(ipcChannels.downloadsRetry, gid),
+    clearAll: () => ipcRenderer.invoke(ipcChannels.downloadsClearAll),
+    clearCompleted: () =>
+      ipcRenderer.invoke(ipcChannels.downloadsClearCompleted),
+    retryFailed: () => ipcRenderer.invoke(ipcChannels.downloadsRetryFailed),
     revealFile: (gid: string) =>
       ipcRenderer.invoke(ipcChannels.downloadsRevealFile, gid),
     revealFolder: (gid: string) =>

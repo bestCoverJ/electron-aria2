@@ -1,10 +1,17 @@
 import type { DownloadTaskState, RuntimeStatus } from "@shared/types";
-import { ChevronsUpDown, Download, Plus, RefreshCw, X } from "lucide-react";
+import { Download, FolderOpen, Plus, RefreshCw, X } from "lucide-react";
 import type { ReactElement } from "react";
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useDownloads } from "@/hooks/use-downloads";
 import { cn } from "@/lib/utils";
@@ -13,18 +20,21 @@ import { formatBytes } from "./download-utils";
 export function EngineLine({
   label,
   runtime,
+  title,
 }: {
   label: string;
   runtime: RuntimeStatus;
+  title?: string;
 }) {
   const connected = runtime.availability === "ready";
+  const failed = runtime.availability === "unavailable";
 
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex items-center gap-2 text-xs" title={title}>
       <span
         className={cn(
           "size-2 rounded-full",
-          connected ? "bg-emerald-500" : "bg-amber-500",
+          connected ? "bg-emerald-500" : failed ? "bg-red-500" : "bg-amber-500",
         )}
       />
       <span className="truncate">{label}</span>
@@ -82,7 +92,7 @@ export function OptionalNumberField({
         onChange={(event) =>
           onChange(event.target.value ? Number(event.target.value) : null)
         }
-        placeholder="Unlimited"
+        placeholder="不限速"
         type="number"
         value={value ?? ""}
       />
@@ -114,13 +124,13 @@ export function Sparkline() {
 
 export function TaskStateBadge({ state }: { state: DownloadTaskState }) {
   const labels: Record<DownloadTaskState, string> = {
-    active: "Downloading",
-    completed: "Completed",
-    failed: "Failed",
-    paused: "Paused",
-    queued: "Queued",
-    removed: "Removed",
-    seeding: "Seeding",
+    active: "下载中",
+    completed: "已完成",
+    failed: "失败",
+    paused: "已暂停",
+    queued: "等待中",
+    removed: "已删除",
+    seeding: "做种中",
   };
 
   const variant =
@@ -164,7 +174,7 @@ export function EmptyState({
         {onAction ? (
           <Button className="mt-5" onClick={onAction}>
             <Plus aria-hidden="true" size={14} />
-            New Download
+            新建下载
           </Button>
         ) : null}
       </div>
@@ -221,8 +231,6 @@ export function DirectoryField({
   recentDirectories: string[];
   value: string;
 }) {
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-
   async function handleBrowse() {
     const result = await onBrowse({ defaultPath: value || undefined });
 
@@ -234,49 +242,46 @@ export function DirectoryField({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-medium">{label}</span>
-      <div className="flex gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_10rem_2.25rem] gap-2">
         <Input
           className="h-9"
           onChange={(event) => onChange(event.target.value)}
+          placeholder="选择或输入保存目录"
           value={value}
         />
+        {recentDirectories.length > 0 ? (
+          <Select
+            onValueChange={onChange}
+            value={recentDirectories.includes(value) ? value : ""}
+          >
+            <SelectTrigger aria-label="选择历史保存目录">
+              <SelectValue placeholder="历史目录" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {recentDirectories.map((directory) => (
+                  <SelectItem key={directory} value={directory}>
+                    {directory}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        ) : (
+          <Button disabled type="button" variant="outline">
+            无历史
+          </Button>
+        )}
         <Button
           aria-label="选择保存目录"
           onClick={() => void handleBrowse()}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Browse
-        </Button>
-        <Button
-          aria-label="展开历史目录"
-          disabled={recentDirectories.length === 0}
-          onClick={() => setIsHistoryOpen((open) => !open)}
           size="icon"
           type="button"
           variant="outline"
         >
-          <ChevronsUpDown aria-hidden="true" size={15} />
+          <FolderOpen aria-hidden="true" size={15} />
         </Button>
       </div>
-      {isHistoryOpen && recentDirectories.length > 0 ? (
-        <div className="max-h-32 overflow-auto rounded-md border bg-popover p-1">
-          {recentDirectories.map((directory) => (
-            <button
-              className="block w-full truncate rounded px-2 py-1.5 text-left text-xs hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              key={directory}
-              onClick={() => {
-                onChange(directory);
-                setIsHistoryOpen(false);
-              }}
-              type="button"
-            >
-              {directory}
-            </button>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }

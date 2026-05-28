@@ -4,6 +4,7 @@ import { join } from "node:path";
 const app = await readFile("src/renderer/src/App.tsx", "utf8");
 const css = await readFile("src/renderer/src/styles/globals.css", "utf8");
 const designSystem = await readFile("design-system/MASTER.md", "utf8");
+const mainSource = await readFile("src/main/index.ts", "utf8");
 const downloaderDir = "src/renderer/src/components/downloader";
 const downloaderFiles = await readdir(downloaderDir);
 const downloaderSource = (
@@ -32,13 +33,14 @@ const checks = [
       app.includes("StatusBar"),
   },
   {
-    name: "Compact mode uses window IPC and restores on double-click",
+    name: "Compact mode restores on double-click without sidebar controls",
     pass:
       app.includes("isCompactMode") &&
-      app.includes("enterCompactMode") &&
       app.includes("exitCompactMode") &&
       uiSource.includes("onDoubleClick={() => void handleExpand()}") &&
-      uiSource.includes("当前下载总进度"),
+      uiSource.includes("当前下载总进度") &&
+      !uiSource.includes("Compact</Button>") &&
+      !uiSource.includes('label="Connected"'),
   },
   {
     name: "shadcn-style primitives and Lucide icons are used",
@@ -91,9 +93,9 @@ const checks = [
     name: "Settings are rendered as a first-class screen",
     pass:
       uiSource.includes("SettingsWorkspace") &&
-      uiSource.includes("Download Engine") &&
-      uiSource.includes("Default Save Folder") &&
-      uiSource.includes("Speed Limit"),
+      uiSource.includes("下载引擎") &&
+      uiSource.includes("默认保存目录") &&
+      uiSource.includes("速度限制"),
   },
   {
     name: "Detail panel exposes transfer tabs",
@@ -110,10 +112,16 @@ const checks = [
     name: "Bottom status bar exposes progress speed and engine state",
     pass:
       uiSource.includes("StatusBar") &&
-      uiSource.includes("Overall Progress") &&
-      uiSource.includes("Speed") &&
-      uiSource.includes("Download Engine") &&
-      uiSource.includes("Sparkline"),
+      uiSource.includes("总进度") &&
+      uiSource.includes("速度") &&
+      uiSource.includes("引擎连接成功") &&
+      uiSource.includes("引擎加载失败") &&
+      uiSource.includes("SpeedWaveform") &&
+      uiSource.includes("totalSpeed <= 0"),
+  },
+  {
+    name: "Electron preload points to the built MJS bundle",
+    pass: mainSource.includes('../preload/index.mjs"'),
   },
   {
     name: "Download API errors are normalized",

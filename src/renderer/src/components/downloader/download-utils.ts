@@ -39,10 +39,10 @@ export function getVisibleTasks(
 
 export function getViewTitle(view: MainView): string {
   const labels: Record<MainView, string> = {
-    downloads: "Download List",
-    history: "History",
-    trash: "Trash",
-    settings: "Settings",
+    downloads: "下载列表",
+    history: "历史记录",
+    trash: "垃圾箱",
+    settings: "设置",
   };
 
   return labels[view];
@@ -61,10 +61,10 @@ export function getViewIcon(view: MainView): typeof Download {
 
 export function getEmptyTitle(view: MainView): string {
   const titles: Record<MainView, string> = {
-    downloads: "No active downloads",
-    history: "No history records",
-    trash: "Trash is empty",
-    settings: "Settings unavailable",
+    downloads: "暂无下载任务",
+    history: "暂无历史记录",
+    trash: "垃圾箱为空",
+    settings: "设置不可用",
   };
 
   return titles[view];
@@ -72,10 +72,10 @@ export function getEmptyTitle(view: MainView): string {
 
 export function getEmptyMessage(view: MainView): string {
   const messages: Record<MainView, string> = {
-    downloads: "Add a URL, Magnet, torrent, or Metalink task to start.",
-    history: "Completed tasks will appear here.",
-    trash: "Removed and failed items will appear here.",
-    settings: "Settings are still loading.",
+    downloads: "添加 URL、Magnet、torrent 或 Metalink 任务开始下载。",
+    history: "完成的下载任务会显示在这里。",
+    trash: "删除或失败的任务会显示在这里。",
+    settings: "设置仍在加载。",
   };
 
   return messages[view];
@@ -149,20 +149,20 @@ export function formatBytes(value: number): string {
 
 export function formatRemaining(seconds: number | null): string {
   if (seconds === null) {
-    return "Unknown";
+    return "未知";
   }
 
   if (seconds < 60) {
-    return `${seconds}s`;
+    return `${seconds} 秒`;
   }
 
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
-  return `${minutes}m ${remainder}s`;
+  return `${minutes} 分 ${remainder} 秒`;
 }
 
 export function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("zh-CN", {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",

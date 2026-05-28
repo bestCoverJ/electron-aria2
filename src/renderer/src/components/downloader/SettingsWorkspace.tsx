@@ -48,19 +48,19 @@ export function SettingsWorkspace({
       onSubmit={handleSubmit}
     >
       <div className="grid gap-5 min-[1160px]:grid-cols-2">
-        <SettingsGroup title="Download Engine">
+        <SettingsGroup title="下载引擎">
           <label className="grid gap-2">
-            <span className="text-xs font-medium">Download Engine</span>
+            <span className="text-xs font-medium">下载引擎</span>
             <Input readOnly value="aria2" />
           </label>
           <NumberField
-            label="Listen Port"
+            label="监听端口"
             min={1}
             onChange={() => undefined}
             value={6800}
           />
           <NumberField
-            label="Max Connections per Server"
+            label="单任务最大连接数"
             min={1}
             onChange={(connectionsPerTask) =>
               setDraft({ ...draft, connectionsPerTask })
@@ -69,15 +69,15 @@ export function SettingsWorkspace({
           />
         </SettingsGroup>
 
-        <SettingsGroup title="Startup">
-          <SwitchRow label="Start with Windows" value={false} />
-          <SwitchRow label="Start minimized" value />
-          <SwitchRow label="Show tray icon" value />
+        <SettingsGroup title="启动">
+          <SwitchRow label="开机启动" value={false} />
+          <SwitchRow label="启动时最小化" value />
+          <SwitchRow label="显示托盘图标" value />
         </SettingsGroup>
 
-        <SettingsGroup title="Default Save Folder">
+        <SettingsGroup title="默认保存目录">
           <DirectoryField
-            label="Save Folder"
+            label="保存目录"
             onBrowse={actions.selectDirectory}
             onChange={(downloadDirectory) =>
               setDraft({ ...draft, downloadDirectory })
@@ -87,17 +87,17 @@ export function SettingsWorkspace({
           />
         </SettingsGroup>
 
-        <SettingsGroup title="Appearance">
+        <SettingsGroup title="外观">
           <label className="grid gap-2">
-            <span className="text-xs font-medium">Theme</span>
+            <span className="text-xs font-medium">主题</span>
             <Input readOnly value={draft.theme} />
           </label>
-          <SwitchRow label="Light interface" value={draft.theme !== "dark"} />
+          <SwitchRow label="浅色界面" value={draft.theme !== "dark"} />
         </SettingsGroup>
 
-        <SettingsGroup title="Concurrent Downloads">
+        <SettingsGroup title="并发下载">
           <NumberField
-            label="Maximum concurrent downloads"
+            label="最大并发下载数"
             min={1}
             onChange={(maxConcurrentDownloads) =>
               setDraft({ ...draft, maxConcurrentDownloads })
@@ -106,35 +106,35 @@ export function SettingsWorkspace({
           />
         </SettingsGroup>
 
-        <SettingsGroup title="Network">
+        <SettingsGroup title="网络">
           <label className="grid gap-2">
-            <span className="text-xs font-medium">Proxy</span>
+            <span className="text-xs font-medium">代理</span>
             <Input
               onChange={(event) =>
                 setDraft({ ...draft, proxyUrl: event.target.value || null })
               }
-              placeholder="None"
+              placeholder="无"
               value={draft.proxyUrl ?? ""}
             />
           </label>
           <NumberField
-            label="Proxy Port"
+            label="代理端口"
             min={0}
             onChange={() => undefined}
             value={8080}
           />
         </SettingsGroup>
 
-        <SettingsGroup title="Speed Limit">
+        <SettingsGroup title="速度限制">
           <OptionalNumberField
-            label="Global download speed limit"
+            label="全局下载限速"
             onChange={(globalDownloadLimit) =>
               setDraft({ ...draft, globalDownloadLimit })
             }
             value={draft.globalDownloadLimit}
           />
           <OptionalNumberField
-            label="Global upload speed limit"
+            label="全局上传限速"
             onChange={(globalUploadLimit) =>
               setDraft({ ...draft, globalUploadLimit })
             }
@@ -142,9 +142,9 @@ export function SettingsWorkspace({
           />
         </SettingsGroup>
 
-        <SettingsGroup title="Advanced">
+        <SettingsGroup title="高级">
           <label className="grid gap-2">
-            <span className="text-xs font-medium">aria2 options JSON</span>
+            <span className="text-xs font-medium">aria2 选项 JSON</span>
             <Textarea
               className="min-h-28 font-mono"
               onChange={(event) => setAdvancedText(event.target.value)}
@@ -158,7 +158,7 @@ export function SettingsWorkspace({
       <div className="sticky bottom-0 mt-5 flex justify-end border-t bg-white py-3">
         <Button disabled={isSaving} type="submit">
           <SlidersHorizontal aria-hidden="true" size={14} />
-          Save Settings
+          保存设置
         </Button>
       </div>
     </form>

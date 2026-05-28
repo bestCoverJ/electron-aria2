@@ -9,10 +9,7 @@ export function getTideApi(): TideApi {
   if (
     !api?.downloads?.add ||
     !api.downloads.getSnapshot ||
-    !api.settings?.get ||
-    !api.settings.selectDirectory ||
-    !api.appWindow?.enterCompactMode ||
-    !api.appWindow.exitCompactMode
+    !api.settings?.get
   ) {
     throw new Error(missingApiMessage);
   }
@@ -33,6 +30,10 @@ export function normalizeUserError(caught: unknown): string {
 
   if (!message || message === "undefined") {
     return "操作失败，请稍后重试。";
+  }
+
+  if (message.includes("aria2 runtime is not available")) {
+    return "下载引擎不可用，请确认 aria2 已成功启动后重试。";
   }
 
   return message;

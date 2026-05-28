@@ -1,6 +1,5 @@
 import type { AppSettings, DownloadTask } from "@shared/types";
 import {
-  List,
   MoreHorizontal,
   Pause,
   Play,
@@ -11,6 +10,13 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useDownloads } from "@/hooks/use-downloads";
@@ -58,10 +64,11 @@ export function WorkspacePanel({
       <section className="flex min-h-0 flex-col bg-white">
         <WorkspaceHeader
           count={0}
+          actions={actions}
           onAdd={onAdd}
           query={query}
           setQuery={setQuery}
-          title="Settings"
+          title="设置"
           variant="settings"
         />
         {settings ? (
@@ -71,7 +78,7 @@ export function WorkspacePanel({
             icon={Settings}
             isLoading={isLoading}
             message="设置尚未加载。"
-            title="Settings unavailable"
+            title="设置不可用"
           />
         )}
       </section>
@@ -82,6 +89,7 @@ export function WorkspacePanel({
     <section className="flex min-h-0 flex-col bg-white">
       <WorkspaceHeader
         count={tasks.length}
+        actions={actions}
         onAdd={onAdd}
         query={query}
         setQuery={setQuery}
@@ -118,13 +126,14 @@ export function WorkspacePanel({
         </div>
       )}
       <div className="border-t px-4 py-2 text-center text-xs text-muted-foreground">
-        {tasks.length} items
+        {tasks.length} 项
       </div>
     </section>
   );
 }
 
 function WorkspaceHeader({
+  actions,
   count,
   onAdd,
   query,
@@ -132,6 +141,7 @@ function WorkspaceHeader({
   title,
   variant,
 }: {
+  actions: ReturnType<typeof useDownloads>["actions"];
   count: number;
   onAdd: () => void;
   query: string;
@@ -150,13 +160,13 @@ function WorkspaceHeader({
       {variant === "downloads" ? (
         <Button onClick={onAdd} size="sm">
           <Plus aria-hidden="true" size={14} />
-          New
+          新建
         </Button>
       ) : null}
       {variant !== "settings" ? (
         <>
           <label className="relative w-36">
-            <span className="sr-only">Search</span>
+            <span className="sr-only">搜索</span>
             <Search
               aria-hidden="true"
               className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -165,16 +175,33 @@ function WorkspaceHeader({
             <Input
               className="h-8 pl-8"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search"
+              placeholder="搜索"
               value={query}
             />
           </label>
-          <Button aria-label="List density" size="icon" variant="ghost">
-            <List aria-hidden="true" size={16} />
-          </Button>
-          <Button aria-label="More actions" size="icon" variant="ghost">
-            <MoreHorizontal aria-hidden="true" size={16} />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button aria-label="更多操作" size="icon" variant="ghost">
+                <MoreHorizontal aria-hidden="true" size={16} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  disabled={count === 0}
+                  onClick={() => void actions.clearAll()}
+                >
+                  全部删除
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void actions.clearCompleted()}>
+                  删除已完成的任务
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void actions.retryFailed()}>
+                  重试失败的下载任务
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>
       ) : null}
     </header>
@@ -222,7 +249,7 @@ function TaskListItem({
         <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
           <span>{formatBytes(task.completedLength)}</span>
           {task.totalLength ? (
-            <span>of {formatBytes(task.totalLength)}</span>
+            <span>/ {formatBytes(task.totalLength)}</span>
           ) : null}
           {view === "history" ? (
             <span>{formatDate(task.updatedAt)}</span>
@@ -242,7 +269,7 @@ function TaskListItem({
         ) : null}
       </div>
       {view === "history" ? (
-        <Badge variant="success">Completed</Badge>
+        <Badge variant="success">已完成</Badge>
       ) : (
         <TaskQuickAction actions={actions} task={task} />
       )}
@@ -260,7 +287,7 @@ function TaskQuickAction({
   if (task.state === "active" || task.state === "seeding") {
     return (
       <Button
-        aria-label="Pause download"
+        aria-label="暂停下载"
         onClick={(event) => {
           event.stopPropagation();
           void actions.pause(task.gid);
@@ -276,7 +303,7 @@ function TaskQuickAction({
   if (task.state === "failed") {
     return (
       <Button
-        aria-label="Retry download"
+        aria-label="重试下载"
         onClick={(event) => {
           event.stopPropagation();
           void actions.retry(task.gid);
@@ -291,7 +318,7 @@ function TaskQuickAction({
 
   return (
     <Button
-      aria-label="Resume download"
+      aria-label="继续下载"
       onClick={(event) => {
         event.stopPropagation();
         void actions.resume(task.gid);

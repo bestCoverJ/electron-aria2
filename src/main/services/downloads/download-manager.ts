@@ -76,7 +76,11 @@ export class DownloadManager {
     try {
       await client.remove(gid);
     } catch {
-      await client.forceRemove(gid);
+      try {
+        await client.forceRemove(gid);
+      } catch {
+        // Stopped results are cleared through removeDownloadResult below.
+      }
     }
 
     try {
@@ -108,8 +112,10 @@ export class DownloadManager {
     const metadata = this.store.getTaskMetadata(gid);
 
     if (!metadata) {
-      throw new Error("Cannot retry task because its metadata was not found.");
+      throw new Error("无法重试任务，未找到任务元数据。");
     }
+
+    await this.remove(gid, { removeFiles: false });
 
     return this.add({
       source: metadata.source,
@@ -117,12 +123,40 @@ export class DownloadManager {
     });
   }
 
+  async clearAll(): Promise<void> {
+    const tasks = await this.getRawTasks();
+
+    await Promise.allSettled(
+      tasks.map((task) => this.remove(task.gid, { removeFiles: false })),
+    );
+
+    for (const metadata of this.store.listTaskMetadata()) {
+      this.store.removeTaskMetadata(metadata.gid);
+    }
+  }
+
+  async clearCompleted(): Promise<void> {
+    const tasks = await this.getRawTasks();
+    const completed = tasks.filter((task) => task.status === "complete");
+
+    await Promise.allSettled(
+      completed.map((task) => this.remove(task.gid, { removeFiles: false })),
+    );
+  }
+
+  async retryFailed(): Promise<void> {
+    const tasks = await this.getRawTasks();
+    const failed = tasks.filter((task) => task.status === "error");
+
+    await Promise.allSettled(failed.map((task) => this.retry(task.gid)));
+  }
+
   async revealFile(gid: string): Promise<void> {
     const task = await this.findTask(gid);
     const filePath = task?.files?.find((file) => file.path)?.path;
 
     if (!filePath) {
-      throw new Error("No downloaded file path is available for this task.");
+      throw new Error("该任务暂无可打开的下载文件路径。");
     }
 
     await assertPathAccessible(filePath);
@@ -136,7 +170,7 @@ export class DownloadManager {
     const folder = filePath ? dirname(filePath) : metadata?.directory;
 
     if (!folder) {
-      throw new Error("No download folder is available for this task.");
+      throw new Error("该任务暂无可打开的下载目录。");
     }
 
     await assertPathAccessible(folder);
@@ -183,6 +217,6 @@ async function assertPathAccessible(path: string): Promise<void> {
   try {
     await access(path);
   } catch {
-    throw new Error(`Path is not accessible: ${path}`);
+    throw new Error(`路径不可访问：${path}`);
   }
 }
