@@ -16,9 +16,18 @@ import { createServer as createNetServer } from "node:net";
 
 const platformId = `${process.platform}-${process.arch}`;
 const binaryName = process.platform === "win32" ? "aria2c.exe" : "aria2c";
-const binaryPath = join(process.cwd(), "resources", "aria2", platformId, binaryName);
+const binaryPath = join(
+  process.cwd(),
+  "resources",
+  "aria2",
+  platformId,
+  binaryName,
+);
 
-await access(binaryPath, process.platform === "win32" ? constants.F_OK : constants.X_OK);
+await access(
+  binaryPath,
+  process.platform === "win32" ? constants.F_OK : constants.X_OK,
+);
 
 const workspace = await mkdtemp(join(tmpdir(), "tide-x-flow-"));
 const httpServer = await startFixtureServer();
@@ -64,7 +73,9 @@ try {
   const recovered = await findTask(runtime, recoveryGid);
 
   if (!recovered) {
-    throw new Error("Restart recovery failed: aria2 did not reload the saved task.");
+    throw new Error(
+      "Restart recovery failed: aria2 did not reload the saved task.",
+    );
   }
 
   await rpc(runtime, "aria2.forceRemove", [recoveryGid]).catch(() => undefined);
@@ -78,7 +89,9 @@ try {
 
   await verifySettingsPersistenceContract();
 
-  console.log("download flow verification passed: add, pause, resume, remove, complete, fail, restart recovery");
+  console.log(
+    "download flow verification passed: add, pause, resume, remove, complete, fail, restart recovery",
+  );
 } finally {
   if (runtime) {
     await stopAria2(runtime).catch(() => undefined);
@@ -117,7 +130,9 @@ async function startAria2(directory) {
   const runtime = { child, port: rpcPort, secret, stopping: false };
   child.once("exit", (code, signal) => {
     if (!runtime.stopping && code !== 0 && code !== null) {
-      console.error(`aria2 flow process exited with code ${code} ${signal ?? ""}`);
+      console.error(
+        `aria2 flow process exited with code ${code} ${signal ?? ""}`,
+      );
       console.error(stderr.join("").trim());
     }
   });
@@ -224,7 +239,9 @@ async function waitForRpc(runtime) {
     }
   }
 
-  throw new Error(`aria2 RPC did not become ready: ${lastError?.message ?? "timeout"}`);
+  throw new Error(
+    `aria2 RPC did not become ready: ${lastError?.message ?? "timeout"}`,
+  );
 }
 
 async function waitForStatus(runtime, gid, expectedStatus, timeoutMs) {
@@ -242,7 +259,9 @@ async function waitForStatus(runtime, gid, expectedStatus, timeoutMs) {
     await delay(120);
   }
 
-  throw new Error(`Expected ${gid} to become ${expectedStatus}, got ${lastStatus}.`);
+  throw new Error(
+    `Expected ${gid} to become ${expectedStatus}, got ${lastStatus}.`,
+  );
 }
 
 async function findTask(runtime, gid) {
@@ -338,23 +357,36 @@ async function removeWithRetry(path) {
     }
   }
 
-  console.warn(`Unable to remove temporary directory ${path}: ${lastError?.message}`);
+  console.warn(
+    `Unable to remove temporary directory ${path}: ${lastError?.message}`,
+  );
 }
 
 async function verifySettingsPersistenceContract() {
-  const source = await readFile("src/main/services/persistence/app-store.ts", "utf8");
+  const source = await readFile(
+    "src/main/services/persistence/app-store.ts",
+    "utf8",
+  );
+  const validationSource = await readFile(
+    "src/main/services/persistence/settings-validation.ts",
+    "utf8",
+  );
   const requiredSnippets = [
     "getSettings()",
     "updateSettings(patch",
+    "recentDownloadDirectories",
     "normalizeSettingsPatch",
+    "normalizeRecentDirectories",
     "readState()",
     "writeState()",
     "state.json",
     "writeFileSync",
   ];
 
+  const combinedSource = `${source}\n${validationSource}`;
+
   for (const snippet of requiredSnippets) {
-    if (!source.includes(snippet)) {
+    if (!combinedSource.includes(snippet)) {
       throw new Error(`Settings persistence contract is missing: ${snippet}`);
     }
   }

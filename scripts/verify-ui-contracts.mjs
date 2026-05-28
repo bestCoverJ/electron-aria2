@@ -1,8 +1,19 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 const app = await readFile("src/renderer/src/App.tsx", "utf8");
 const css = await readFile("src/renderer/src/styles/globals.css", "utf8");
 const designSystem = await readFile("design-system/MASTER.md", "utf8");
+const downloaderDir = "src/renderer/src/components/downloader";
+const downloaderFiles = await readdir(downloaderDir);
+const downloaderSource = (
+  await Promise.all(
+    downloaderFiles
+      .filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"))
+      .map((file) => readFile(join(downloaderDir, file), "utf8")),
+  )
+).join("\n");
+const uiSource = `${app}\n${downloaderSource}`;
 
 const checks = [
   {
@@ -10,41 +21,53 @@ const checks = [
     pass: app.includes("useMemo") && app.includes("useState"),
   },
   {
-    name: "Left menu and right list split layout exists",
+    name: "Four-screen shell layout exists",
     pass:
-      app.includes("grid-cols-[264px_1fr]") &&
-      app.includes("下载任务列表") &&
-      app.includes("Sidebar"),
+      uiSource.includes(
+        'type MainView = "downloads" | "history" | "trash" | "settings"',
+      ) &&
+      app.includes("AppSidebar") &&
+      app.includes("WorkspacePanel") &&
+      app.includes("DetailsPanel") &&
+      app.includes("StatusBar"),
   },
   {
-    name: "Compact mode shows progress and restores on double-click",
+    name: "Compact mode uses window IPC and restores on double-click",
     pass:
       app.includes("isCompactMode") &&
-      app.includes("onDoubleClick={onExpand}") &&
-      app.includes("当前下载总进度"),
+      app.includes("enterCompactMode") &&
+      app.includes("exitCompactMode") &&
+      uiSource.includes("onDoubleClick={() => void handleExpand()}") &&
+      uiSource.includes("当前下载总进度"),
   },
   {
     name: "shadcn-style primitives and Lucide icons are used",
     pass:
-      app.includes("@/components/ui/button") &&
-      app.includes("@/components/ui/progress") &&
-      app.includes("lucide-react"),
+      uiSource.includes("@/components/ui/button") &&
+      uiSource.includes("@/components/ui/progress") &&
+      uiSource.includes("lucide-react"),
   },
   {
     name: "Accessible labels and visible focus states exist",
     pass:
-      app.includes("aria-label") &&
-      app.includes("aria-modal") &&
-      app.includes("focus-visible:ring") &&
+      uiSource.includes("aria-label") &&
+      uiSource.includes("aria-modal") &&
+      uiSource.includes("focus-visible:ring") &&
       css.includes("--ring"),
   },
   {
     name: "No horizontal overflow on the app shell",
-    pass: app.includes("overflow-hidden") && app.includes("min-w-0"),
+    pass:
+      app.includes("overflow-hidden") &&
+      app.includes("min-w-0") &&
+      app.includes("max-[860px]:grid-cols"),
   },
   {
-    name: "Light and dark themes are defined",
-    pass: css.includes(":root") && css.includes(".dark"),
+    name: "Blue and white visual system is defined",
+    pass:
+      css.includes("--background: 0 0% 100%") &&
+      css.includes("--primary: 229 82% 55%") &&
+      designSystem.includes("#2f54eb"),
   },
   {
     name: "Reduced motion preference is respected",
@@ -57,11 +80,55 @@ const checks = [
       designSystem.includes("Source Han Sans"),
   },
   {
-    name: "Glass panels are restrained for readability",
+    name: "Directory picker and history controls exist",
     pass:
-      css.includes(".glass-panel") &&
-      css.includes("hsl(var(--card) / 0.78)") &&
-      designSystem.includes("opaque-enough surfaces"),
+      uiSource.includes("DirectoryField") &&
+      uiSource.includes("selectDirectory") &&
+      uiSource.includes("recentDownloadDirectories") &&
+      designSystem.includes("recent directory"),
+  },
+  {
+    name: "Settings are rendered as a first-class screen",
+    pass:
+      uiSource.includes("SettingsWorkspace") &&
+      uiSource.includes("Download Engine") &&
+      uiSource.includes("Default Save Folder") &&
+      uiSource.includes("Speed Limit"),
+  },
+  {
+    name: "Detail panel exposes transfer tabs",
+    pass:
+      uiSource.includes(
+        'type DetailTab = "overview" | "files" | "peers" | "log"',
+      ) &&
+      uiSource.includes("OverviewDetails") &&
+      uiSource.includes("FilesDetails") &&
+      uiSource.includes("PeersDetails") &&
+      uiSource.includes("LogDetails"),
+  },
+  {
+    name: "Bottom status bar exposes progress speed and engine state",
+    pass:
+      uiSource.includes("StatusBar") &&
+      uiSource.includes("Overall Progress") &&
+      uiSource.includes("Speed") &&
+      uiSource.includes("Download Engine") &&
+      uiSource.includes("Sparkline"),
+  },
+  {
+    name: "Download API errors are normalized",
+    pass:
+      uiSource.includes("normalizeUserError") &&
+      (await readFile("src/renderer/src/lib/tide-api.ts", "utf8")).includes(
+        "Cannot read properties of undefined",
+      ),
+  },
+  {
+    name: "Shell glass is restrained for readability",
+    pass:
+      css.includes(".shell-glass") &&
+      css.includes("backdrop-filter") &&
+      designSystem.includes("Main content remains white"),
   },
 ];
 

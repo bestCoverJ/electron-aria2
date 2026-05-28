@@ -1,5 +1,9 @@
-import { ipcMain } from "electron";
-import type { AddDownloadInput, AppSettings } from "@shared/types";
+import { dialog, ipcMain } from "electron";
+import type {
+  AddDownloadInput,
+  AppSettings,
+  SelectDirectoryOptions,
+} from "@shared/types";
 import type { Aria2Runtime } from "../services/aria2";
 import type { DownloadManager } from "../services/downloads";
 import type { AppStore } from "../services/persistence";
@@ -10,7 +14,19 @@ export function registerIpcHandlers(
   runtime: Aria2Runtime,
   store: AppStore,
   downloads: DownloadManager,
+  windowControls: {
+    enterCompactMode(): void;
+    exitCompactMode(): void;
+  },
 ): void {
+  ipcMain.handle(ipcChannels.windowEnterCompactMode, () => {
+    windowControls.enterCompactMode();
+  });
+
+  ipcMain.handle(ipcChannels.windowExitCompactMode, () => {
+    windowControls.exitCompactMode();
+  });
+
   ipcMain.handle(ipcChannels.settingsGet, () => store.getSettings());
 
   ipcMain.handle(
@@ -19,6 +35,23 @@ export function registerIpcHandlers(
       const settings = await store.updateSettings(patch);
       await runtime.applySettings(settings);
       return settings;
+    },
+  );
+
+  ipcMain.handle(
+    ipcChannels.settingsSelectDirectory,
+    async (_event, options?: SelectDirectoryOptions) => {
+      const result = await dialog.showOpenDialog({
+        title: "选择保存目录",
+        defaultPath:
+          options?.defaultPath || store.getSettings().downloadDirectory,
+        properties: ["openDirectory", "createDirectory"],
+      });
+
+      return {
+        canceled: result.canceled,
+        path: result.canceled ? null : (result.filePaths[0] ?? null),
+      };
     },
   );
 

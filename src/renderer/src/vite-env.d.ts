@@ -4,7 +4,7 @@ import type { TideApi } from "@shared/types";
 
 declare global {
   interface Window {
-    tide: TideApi;
+    tide?: TideApi;
   }
 }
 

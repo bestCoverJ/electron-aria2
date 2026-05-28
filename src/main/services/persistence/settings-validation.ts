@@ -3,6 +3,7 @@ import { access, mkdir } from "node:fs/promises";
 import { constants } from "node:fs";
 
 const allowedAdvancedOption = /^[a-z0-9][a-z0-9-]*$/;
+const maxRecentDirectories = 8;
 
 export async function normalizeSettingsPatch(
   current: AppSettings,
@@ -18,6 +19,10 @@ export async function normalizeSettingsPatch(
   };
 
   await validateDownloadDirectory(next.downloadDirectory);
+  next.recentDownloadDirectories = normalizeRecentDirectories(
+    next.recentDownloadDirectories,
+    next.downloadDirectory,
+  );
   validatePositiveInteger(
     next.maxConcurrentDownloads,
     "maxConcurrentDownloads",
@@ -29,6 +34,28 @@ export async function normalizeSettingsPatch(
   validateAdvancedOptions(next.advancedAria2Options);
 
   return next;
+}
+
+export function normalizeRecentDirectories(
+  directories: string[],
+  preferredDirectory?: string,
+): string[] {
+  const normalized = new Map<string, string>();
+  const candidates = [preferredDirectory, ...directories].filter(
+    (value): value is string => Boolean(value?.trim()),
+  );
+
+  for (const directory of candidates) {
+    const trimmed = directory.trim();
+    const key =
+      process.platform === "win32" ? trimmed.toLocaleLowerCase() : trimmed;
+
+    if (!normalized.has(key)) {
+      normalized.set(key, trimmed);
+    }
+  }
+
+  return [...normalized.values()].slice(0, maxRecentDirectories);
 }
 
 async function validateDownloadDirectory(path: string): Promise<void> {

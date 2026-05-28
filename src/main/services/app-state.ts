@@ -4,6 +4,7 @@ import type { AppSettings, RuntimeStatus, TaskSnapshot } from "@shared/types";
 export function createDefaultSettings(): AppSettings {
   return {
     downloadDirectory: app.getPath("downloads"),
+    recentDownloadDirectories: [app.getPath("downloads")],
     maxConcurrentDownloads: 3,
     connectionsPerTask: 8,
     globalDownloadLimit: null,

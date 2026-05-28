@@ -1,12 +1,25 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { ipcChannels } from "@shared/ipc";
-import type { AddDownloadInput, AppSettings, TideApi } from "@shared/types";
+import type {
+  AddDownloadInput,
+  AppSettings,
+  SelectDirectoryOptions,
+  TideApi,
+} from "@shared/types";
 
 const tideApi: TideApi = {
+  appWindow: {
+    enterCompactMode: () =>
+      ipcRenderer.invoke(ipcChannels.windowEnterCompactMode),
+    exitCompactMode: () =>
+      ipcRenderer.invoke(ipcChannels.windowExitCompactMode),
+  },
   settings: {
     get: () => ipcRenderer.invoke(ipcChannels.settingsGet),
     update: (patch: Partial<AppSettings>) =>
       ipcRenderer.invoke(ipcChannels.settingsUpdate, patch),
+    selectDirectory: (options?: SelectDirectoryOptions) =>
+      ipcRenderer.invoke(ipcChannels.settingsSelectDirectory, options),
   },
   runtime: {
     getStatus: () => ipcRenderer.invoke(ipcChannels.runtimeGetStatus),

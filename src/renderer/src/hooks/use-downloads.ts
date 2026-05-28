@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AddDownloadInput,
   AppSettings,
+  SelectDirectoryOptions,
+  SelectDirectoryResult,
   TaskSnapshot,
 } from "@shared/types";
+import { getTideApi, normalizeUserError } from "@/lib/tide-api";
 
 const fallbackSnapshot: TaskSnapshot = {
   tasks: [],
@@ -33,15 +36,16 @@ export function useDownloads() {
 
   const refresh = useCallback(async () => {
     try {
+      const tide = getTideApi();
       const [nextSnapshot, nextSettings] = await Promise.all([
-        window.tide.downloads.getSnapshot(),
-        window.tide.settings.get(),
+        tide.downloads.getSnapshot(),
+        tide.settings.get(),
       ]);
       setSnapshot(nextSnapshot);
       setSettings(nextSettings);
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Unknown error.");
+      setError(normalizeUserError(caught));
     } finally {
       setIsLoading(false);
     }
@@ -59,29 +63,40 @@ export function useDownloads() {
   const actions = useMemo(
     () => ({
       add: async (input: AddDownloadInput) => {
-        await window.tide.downloads.add(input);
+        const tide = getTideApi();
+        await tide.downloads.add(input);
         await refresh();
       },
       pause: async (gid: string) => {
-        await window.tide.downloads.pause(gid);
+        const tide = getTideApi();
+        await tide.downloads.pause(gid);
         await refresh();
       },
       resume: async (gid: string) => {
-        await window.tide.downloads.resume(gid);
+        const tide = getTideApi();
+        await tide.downloads.resume(gid);
         await refresh();
       },
       remove: async (gid: string, removeFiles = false) => {
-        await window.tide.downloads.remove(gid, { removeFiles });
+        const tide = getTideApi();
+        await tide.downloads.remove(gid, { removeFiles });
         await refresh();
       },
       retry: async (gid: string) => {
-        await window.tide.downloads.retry(gid);
+        const tide = getTideApi();
+        await tide.downloads.retry(gid);
         await refresh();
       },
-      revealFile: (gid: string) => window.tide.downloads.revealFile(gid),
-      revealFolder: (gid: string) => window.tide.downloads.revealFolder(gid),
+      revealFile: (gid: string) => getTideApi().downloads.revealFile(gid),
+      revealFolder: (gid: string) => getTideApi().downloads.revealFolder(gid),
+      selectDirectory: (
+        options?: SelectDirectoryOptions,
+      ): Promise<SelectDirectoryResult> =>
+        getTideApi().settings.selectDirectory(options),
+      enterCompactMode: () => getTideApi().appWindow.enterCompactMode(),
+      exitCompactMode: () => getTideApi().appWindow.exitCompactMode(),
       updateSettings: async (patch: Partial<AppSettings>) => {
-        const nextSettings = await window.tide.settings.update(patch);
+        const nextSettings = await getTideApi().settings.update(patch);
         setSettings(nextSettings);
         await refresh();
       },

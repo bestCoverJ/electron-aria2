@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme } from "electron";
+import { app, BrowserWindow, nativeTheme, type Rectangle } from "electron";
 import { join } from "node:path";
 import { registerIpcHandlers } from "./ipc/register";
 import { Aria2Runtime } from "./services/aria2";
@@ -9,15 +9,33 @@ import { AppStore } from "./services/persistence";
 let mainWindow: BrowserWindow | null = null;
 const aria2Runtime = new Aria2Runtime();
 let desktopIntegration: DesktopIntegration | null = null;
+let isRecreatingWindow = false;
+let currentWindowMode: "full" | "compact" = "full";
+let lastFullBounds: Rectangle | null = null;
 
-function createMainWindow(): BrowserWindow {
+function createMainWindow(
+  mode: "full" | "compact" = currentWindowMode,
+): BrowserWindow {
+  currentWindowMode = mode;
+  const isCompact = mode === "compact";
+  const bounds = isCompact
+    ? { width: 420, height: 240 }
+    : (lastFullBounds ?? { width: 980, height: 640 });
+
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 640,
+    width: bounds.width,
+    height: bounds.height,
+    x: "x" in bounds ? bounds.x : undefined,
+    y: "y" in bounds ? bounds.y : undefined,
+    minWidth: isCompact ? 360 : 760,
+    minHeight: isCompact ? 200 : 520,
     title: "Tide X",
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#042f2e" : "#f0fdfa",
+    autoHideMenuBar: true,
+    frame: !isCompact,
+    resizable: !isCompact,
+    minimizable: !isCompact,
+    maximizable: !isCompact,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#030852" : "#ffffff",
     backgroundMaterial: process.platform === "win32" ? "mica" : undefined,
     vibrancy: process.platform === "darwin" ? "sidebar" : undefined,
     visualEffectState: process.platform === "darwin" ? "active" : undefined,
@@ -35,22 +53,58 @@ function createMainWindow(): BrowserWindow {
   });
 
   mainWindow.on("close", (event) => {
+    if (isRecreatingWindow) {
+      return;
+    }
+
     void desktopIntegration?.handleWindowClose(event);
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+    const suffix = isCompact ? "#compact" : "";
+    mainWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}${suffix}`);
   } else {
-    mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    mainWindow.loadFile(join(__dirname, "../renderer/index.html"), {
+      hash: isCompact ? "compact" : "",
+    });
   }
 
   return mainWindow;
 }
 
+function recreateMainWindow(mode: "full" | "compact"): void {
+  const previousWindow = mainWindow;
+  isRecreatingWindow = true;
+  previousWindow?.removeAllListeners("close");
+  previousWindow?.close();
+  isRecreatingWindow = false;
+  createMainWindow(mode);
+}
+
+function enterCompactMode(): void {
+  if (!mainWindow || currentWindowMode === "compact") {
+    return;
+  }
+
+  lastFullBounds = mainWindow.getBounds();
+  recreateMainWindow("compact");
+}
+
+function exitCompactMode(): void {
+  if (currentWindowMode === "full") {
+    return;
+  }
+
+  recreateMainWindow("full");
+}
+
 app.whenReady().then(async () => {
   const appStore = new AppStore();
   const downloads = new DownloadManager(aria2Runtime, appStore);
-  registerIpcHandlers(aria2Runtime, appStore, downloads);
+  registerIpcHandlers(aria2Runtime, appStore, downloads, {
+    enterCompactMode,
+    exitCompactMode,
+  });
   await aria2Runtime.start(appStore.getSettings());
   desktopIntegration = new DesktopIntegration(
     () => mainWindow,

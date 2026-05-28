@@ -81,6 +81,10 @@ export class AppStore {
         settings: {
           ...defaults.settings,
           ...(stored.settings ?? {}),
+          recentDownloadDirectories: [
+            ...(stored.settings?.recentDownloadDirectories ??
+              defaults.settings.recentDownloadDirectories),
+          ],
           advancedAria2Options: {
             ...defaults.settings.advancedAria2Options,
             ...(stored.settings?.advancedAria2Options ?? {}),

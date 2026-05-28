@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 180 48% 96%;
-    --foreground: 180 40% 13%;
+    --background: 0 0% 100%;
+    --foreground: 230 34% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 180 40% 13%;
+    --card-foreground: 230 34% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 180 40% 13%;
-    --primary: 173 80% 32%;
+    --popover-foreground: 230 34% 12%;
+    --primary: 229 82% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 174 40% 90%;
-    --secondary-foreground: 180 40% 13%;
-    --muted: 174 42% 91%;
-    --muted-foreground: 178 24% 31%;
-    --accent: 24 92% 52%;
-    --accent-foreground: 0 0% 100%;
+    --secondary: 221 100% 97%;
+    --secondary-foreground: 229 68% 44%;
+    --muted: 220 33% 96%;
+    --muted-foreground: 226 14% 44%;
+    --accent: 221 100% 92%;
+    --accent-foreground: 229 68% 44%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 174 26% 78%;
-    --input: 174 26% 78%;
-    --ring: 173 80% 32%;
+    --border: 220 24% 90%;
+    --input: 220 24% 90%;
+    --ring: 229 82% 55%;
     --radius: 0.5rem;
   }
 
@@ -33,19 +33,19 @@
     --card-foreground: 174 72% 97%;
     --popover: 176 54% 11%;
     --popover-foreground: 174 72% 97%;
-    --primary: 172 66% 50%;
-    --primary-foreground: 176 65% 8%;
-    --secondary: 176 42% 18%;
+    --primary: 229 95% 73%;
+    --primary-foreground: 230 80% 8%;
+    --secondary: 229 48% 18%;
     --secondary-foreground: 174 72% 97%;
     --muted: 176 42% 18%;
     --muted-foreground: 174 24% 72%;
-    --accent: 24 95% 53%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 229 48% 22%;
+    --accent-foreground: 220 100% 96%;
     --destructive: 0 62% 42%;
     --destructive-foreground: 0 0% 100%;
     --border: 176 36% 22%;
     --input: 176 36% 22%;
-    --ring: 172 66% 50%;
+    --ring: 229 95% 73%;
   }
 
   * {
@@ -63,23 +63,36 @@
   input,
   textarea {
     font: inherit;
+    -webkit-app-region: no-drag;
   }
 }
 
 @layer components {
   .app-surface {
-    background: hsl(var(--background) / 0.96);
+    background: hsl(var(--background));
+  }
+
+  .compact-surface {
+    background:
+      linear-gradient(135deg, rgb(240 245 255 / 0.92), rgb(255 255 255 / 0.95)),
+      hsl(var(--background));
+    -webkit-app-region: drag;
   }
 
   .glass-panel {
-    background-color: hsl(var(--card) / 0.78);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
-    backdrop-filter: blur(22px) saturate(150%);
+    background-color: hsl(var(--card));
+  }
+
+  .shell-glass {
+    background:
+      linear-gradient(180deg, rgb(240 245 255 / 0.82), rgb(255 255 255 / 0.68)),
+      rgb(255 255 255 / 0.62);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    backdrop-filter: blur(24px) saturate(150%);
   }
 
   .task-row {
-    -webkit-backdrop-filter: blur(14px) saturate(130%);
-    backdrop-filter: blur(14px) saturate(130%);
+    min-height: 92px;
   }
 
   .line-clamp-2 {

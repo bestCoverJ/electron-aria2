@@ -15,6 +15,7 @@ export type DownloadTaskState =
 
 export interface AppSettings {
   downloadDirectory: string;
+  recentDownloadDirectories: string[];
   maxConcurrentDownloads: number;
   connectionsPerTask: number;
   globalDownloadLimit: number | null;
@@ -94,10 +95,26 @@ export interface RemoveDownloadOptions {
   removeFiles?: boolean;
 }
 
+export interface SelectDirectoryOptions {
+  defaultPath?: string;
+}
+
+export interface SelectDirectoryResult {
+  canceled: boolean;
+  path: string | null;
+}
+
 export interface TideApi {
+  appWindow: {
+    enterCompactMode(): Promise<void>;
+    exitCompactMode(): Promise<void>;
+  };
   settings: {
     get(): Promise<AppSettings>;
     update(patch: Partial<AppSettings>): Promise<AppSettings>;
+    selectDirectory(
+      options?: SelectDirectoryOptions,
+    ): Promise<SelectDirectoryResult>;
   };
   runtime: {
     getStatus(): Promise<RuntimeStatus>;
