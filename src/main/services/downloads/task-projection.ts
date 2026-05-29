@@ -17,9 +17,25 @@ export function createTaskSnapshot(
   const tasks = rawTasks.map((task) =>
     projectTask(task, metadataByGid.get(task.gid)),
   );
+  const taskIndexByGid = new Map(
+    rawTasks.map((task, index) => [task.gid, index]),
+  );
 
   return {
-    tasks,
+    tasks: tasks.sort((left, right) => {
+      const createdDiff =
+        new Date(left.createdAt).getTime() -
+        new Date(right.createdAt).getTime();
+
+      if (createdDiff !== 0) {
+        return createdDiff;
+      }
+
+      return (
+        (taskIndexByGid.get(left.gid) ?? 0) -
+        (taskIndexByGid.get(right.gid) ?? 0)
+      );
+    }),
     summary: createTransferSummary(tasks),
     runtime,
     capturedAt: new Date().toISOString(),

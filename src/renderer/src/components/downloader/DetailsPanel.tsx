@@ -17,7 +17,11 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { useDownloads } from "@/hooks/use-downloads";
 import { cn } from "@/lib/utils";
-import { formatBytes, formatRemaining, getTaskBrand } from "./download-utils";
+import {
+  formatBytes,
+  formatRemaining,
+  getTaskFileIconUrl,
+} from "./download-utils";
 import { Metric, Sparkline, TaskStateBadge } from "./shared";
 import type { DetailTab, MainView } from "./types";
 
@@ -43,20 +47,17 @@ export function DetailsPanel({
     );
   }
 
-  const brand = getTaskBrand(task.name);
-
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden border-l bg-white max-[860px]:hidden">
       <div className="shrink-0 border-b p-5">
         <div className="flex items-start gap-3">
-          <div
-            className={cn(
-              "flex size-12 shrink-0 items-center justify-center rounded-full text-base font-bold text-white shadow-sm",
-              brand.className,
-            )}
-          >
-            {brand.label}
-          </div>
+          <img
+            alt=""
+            aria-hidden="true"
+            className="size-12 shrink-0 object-contain"
+            draggable={false}
+            src={getTaskFileIconUrl(task)}
+          />
           <div className="min-w-0 flex-1">
             <h2 className="line-clamp-3 text-base font-semibold">
               {task.name}

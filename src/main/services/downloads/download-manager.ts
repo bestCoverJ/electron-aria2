@@ -20,13 +20,7 @@ export class DownloadManager {
 
   async add(input: AddDownloadInput): Promise<{ gid: string }> {
     const parsed = await parseDownloadInput(input, this.store.getSettings());
-    const client = this.runtime.getClient();
-    const gid =
-      parsed.kind === "uri"
-        ? await client.addUri([parsed.source], parsed.options)
-        : parsed.kind === "torrent"
-          ? await client.addTorrent(parsed.contentBase64, parsed.options)
-          : await client.addMetalink(parsed.contentBase64, parsed.options);
+    const gid = await this.enqueueParsedDownload(parsed);
 
     this.store.upsertTaskMetadata({
       gid,
@@ -117,10 +111,43 @@ export class DownloadManager {
 
     await this.remove(gid, { removeFiles: false });
 
-    return this.add({
-      source: metadata.source,
-      directory: metadata.directory ?? undefined,
+    const parsed = await parseDownloadInput(
+      {
+        source: metadata.source,
+        directory: metadata.directory ?? undefined,
+      },
+      this.store.getSettings(),
+    );
+    const nextGid = await this.enqueueParsedDownload(parsed, gid);
+
+    this.store.upsertTaskMetadata({
+      ...metadata,
+      gid: nextGid,
+      createdAt: metadata.createdAt,
     });
+
+    return {
+      gid: nextGid,
+    };
+  }
+
+  private async enqueueParsedDownload(
+    parsed: Awaited<ReturnType<typeof parseDownloadInput>>,
+    preferredGid?: string,
+  ): Promise<string> {
+    const client = this.runtime.getClient();
+    const options = preferredGid
+      ? {
+          ...parsed.options,
+          gid: preferredGid,
+        }
+      : parsed.options;
+
+    return parsed.kind === "uri"
+      ? client.addUri([parsed.source], options)
+      : parsed.kind === "torrent"
+        ? client.addTorrent(parsed.contentBase64, options)
+        : client.addMetalink(parsed.contentBase64, options);
   }
 
   async clearAll(): Promise<void> {

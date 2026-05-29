@@ -1,4 +1,5 @@
 import type { AppSettings, DownloadTask } from "@shared/types";
+import type { MouseEvent } from "react";
 import {
   MoreHorizontal,
   Pause,
@@ -19,6 +20,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useDownloads } from "@/hooks/use-downloads";
 import { cn } from "@/lib/utils";
 import {
@@ -26,10 +35,12 @@ import {
   formatDate,
   getEmptyMessage,
   getEmptyTitle,
-  getTaskBrand,
+  getStatusFilterLabel,
+  getTaskFileIconUrl,
   getViewIcon,
   getViewTitle,
 } from "./download-utils";
+import type { DownloadStatusFilter } from "./download-utils";
 import { EmptyState, TaskStateBadge } from "./shared";
 import { SettingsWorkspace } from "./SettingsWorkspace";
 import type { MainView } from "./types";
@@ -40,11 +51,14 @@ export function WorkspacePanel({
   error,
   isLoading,
   onAdd,
+  onClearTaskSelection,
   onSelectTask,
   query,
   selectedGid,
   setQuery,
+  setStatusFilter,
   settings,
+  statusFilter,
   tasks,
 }: {
   actions: ReturnType<typeof useDownloads>["actions"];
@@ -52,11 +66,14 @@ export function WorkspacePanel({
   error: string | null;
   isLoading: boolean;
   onAdd: () => void;
+  onClearTaskSelection: () => void;
   onSelectTask: (gid: string) => void;
   query: string;
   selectedGid: string | null;
   setQuery: (query: string) => void;
+  setStatusFilter: (filter: DownloadStatusFilter) => void;
   settings: AppSettings | null;
+  statusFilter: DownloadStatusFilter;
   tasks: DownloadTask[];
 }) {
   if (activeView === "settings") {
@@ -68,6 +85,8 @@ export function WorkspacePanel({
           onAdd={onAdd}
           query={query}
           setQuery={setQuery}
+          setStatusFilter={setStatusFilter}
+          statusFilter={statusFilter}
           title="设置"
           variant="settings"
         />
@@ -93,6 +112,8 @@ export function WorkspacePanel({
         onAdd={onAdd}
         query={query}
         setQuery={setQuery}
+        setStatusFilter={setStatusFilter}
+        statusFilter={statusFilter}
         title={getViewTitle(activeView)}
         variant={activeView}
       />
@@ -110,7 +131,14 @@ export function WorkspacePanel({
           title={getEmptyTitle(activeView)}
         />
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
+        <div
+          className="min-h-0 flex-1 overflow-auto px-3 py-2"
+          onClick={(event) => {
+            if (!isTaskRowClick(event)) {
+              onClearTaskSelection();
+            }
+          }}
+        >
           <div className="flex flex-col gap-2">
             {tasks.map((task) => (
               <TaskListItem
@@ -132,12 +160,21 @@ export function WorkspacePanel({
   );
 }
 
+function isTaskRowClick(event: MouseEvent<HTMLElement>): boolean {
+  return (
+    event.target instanceof Element &&
+    Boolean(event.target.closest(".task-row"))
+  );
+}
+
 function WorkspaceHeader({
   actions,
   count,
   onAdd,
   query,
   setQuery,
+  setStatusFilter,
+  statusFilter,
   title,
   variant,
 }: {
@@ -146,6 +183,8 @@ function WorkspaceHeader({
   onAdd: () => void;
   query: string;
   setQuery: (query: string) => void;
+  setStatusFilter: (filter: DownloadStatusFilter) => void;
+  statusFilter: DownloadStatusFilter;
   title: string;
   variant: MainView;
 }) {
@@ -165,6 +204,27 @@ function WorkspaceHeader({
       ) : null}
       {variant !== "settings" ? (
         <>
+          {variant === "downloads" ? (
+            <Select
+              onValueChange={(value) =>
+                setStatusFilter(value as DownloadStatusFilter)
+              }
+              value={statusFilter}
+            >
+              <SelectTrigger aria-label="筛选下载状态" className="h-8 w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectGroup>
+                  {statusFilters.map((filter) => (
+                    <SelectItem key={filter} value={filter}>
+                      {getStatusFilterLabel(filter)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          ) : null}
           <label className="relative w-36">
             <span className="sr-only">搜索</span>
             <Search
@@ -208,6 +268,15 @@ function WorkspaceHeader({
   );
 }
 
+const statusFilters: DownloadStatusFilter[] = [
+  "all",
+  "not-started",
+  "active",
+  "paused",
+  "failed",
+  "stopped",
+];
+
 function TaskListItem({
   actions,
   onSelect,
@@ -221,8 +290,6 @@ function TaskListItem({
   task: DownloadTask;
   view: MainView;
 }) {
-  const brand = getTaskBrand(task.name);
-
   return (
     <article
       className={cn(
@@ -233,18 +300,17 @@ function TaskListItem({
       )}
       onClick={() => onSelect(task.gid)}
     >
-      <div
-        className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm",
-          brand.className,
-        )}
-      >
-        {brand.label}
-      </div>
+      <img
+        alt=""
+        aria-hidden="true"
+        className="size-11 shrink-0 object-contain"
+        draggable={false}
+        src={getTaskFileIconUrl(task)}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <h2 className="truncate text-sm font-semibold">{task.name}</h2>
-          {view === "history" ? <TaskStateBadge state={task.state} /> : null}
+          <TaskStateBadge state={task.state} />
         </div>
         <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
           <span>{formatBytes(task.completedLength)}</span>
@@ -292,7 +358,9 @@ function TaskQuickAction({
           event.stopPropagation();
           void actions.pause(task.gid);
         }}
+        onPointerDown={(event) => event.stopPropagation()}
         size="icon"
+        type="button"
         variant="outline"
       >
         <Pause aria-hidden="true" size={15} />
@@ -308,7 +376,9 @@ function TaskQuickAction({
           event.stopPropagation();
           void actions.retry(task.gid);
         }}
+        onPointerDown={(event) => event.stopPropagation()}
         size="icon"
+        type="button"
         variant="outline"
       >
         <RotateCcw aria-hidden="true" size={15} />
@@ -323,7 +393,9 @@ function TaskQuickAction({
         event.stopPropagation();
         void actions.resume(task.gid);
       }}
+      onPointerDown={(event) => event.stopPropagation()}
       size="icon"
+      type="button"
       variant="outline"
     >
       <Play aria-hidden="true" size={15} />

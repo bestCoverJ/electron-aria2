@@ -10,6 +10,7 @@ import {
   calculateOverallProgress,
   getVisibleTasks,
 } from "@/components/downloader/download-utils";
+import type { DownloadStatusFilter } from "@/components/downloader/download-utils";
 import type { DetailTab, MainView } from "@/components/downloader/types";
 import { useDownloads } from "@/hooks/use-downloads";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ export function App(): ReactElement {
   const { actions, error, isLoading, settings, snapshot } = useDownloads();
   const [activeView, setActiveView] = useState<MainView>("downloads");
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<DownloadStatusFilter>("all");
   const [selectedGid, setSelectedGid] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("overview");
   const [isCompactMode, setIsCompactMode] = useState(
@@ -26,11 +28,11 @@ export function App(): ReactElement {
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   const visibleTasks = useMemo(
-    () => getVisibleTasks(snapshot.tasks, activeView, query),
-    [activeView, query, snapshot.tasks],
+    () => getVisibleTasks(snapshot.tasks, activeView, query, statusFilter),
+    [activeView, query, snapshot.tasks, statusFilter],
   );
   const selectedTask = selectedGid
-    ? (visibleTasks.find((task) => task.gid === selectedGid) ?? null)
+    ? (snapshot.tasks.find((task) => task.gid === selectedGid) ?? null)
     : null;
   const overallProgress = calculateOverallProgress(snapshot);
 
@@ -73,11 +75,14 @@ export function App(): ReactElement {
           error={error}
           isLoading={isLoading}
           onAdd={() => setIsAddOpen(true)}
+          onClearTaskSelection={() => setSelectedGid(null)}
           onSelectTask={setSelectedGid}
           query={query}
-          selectedGid={selectedTask?.gid ?? null}
+          selectedGid={selectedGid}
           setQuery={setQuery}
+          setStatusFilter={setStatusFilter}
           settings={settings}
+          statusFilter={statusFilter}
           tasks={visibleTasks}
         />
 

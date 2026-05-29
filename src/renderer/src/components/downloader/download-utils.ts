@@ -2,19 +2,28 @@ import type { DownloadTask, RuntimeStatus, TaskSnapshot } from "@shared/types";
 import { Download, History, Settings, Trash2 } from "lucide-react";
 import type { MainView } from "./types";
 
+export type DownloadStatusFilter =
+  | "all"
+  | "not-started"
+  | "active"
+  | "paused"
+  | "failed"
+  | "stopped";
+
 export function getVisibleTasks(
   tasks: DownloadTask[],
   view: MainView,
   query: string,
+  statusFilter: DownloadStatusFilter = "all",
 ): DownloadTask[] {
   const normalizedQuery = query.trim().toLowerCase();
-  const scoped = tasks.filter((task) => {
+  let scoped = tasks.filter((task) => {
     if (view === "history") {
       return task.state === "completed";
     }
 
     if (view === "trash") {
-      return task.state === "removed" || task.state === "failed";
+      return task.state === "removed";
     }
 
     if (view === "downloads") {
@@ -23,6 +32,10 @@ export function getVisibleTasks(
 
     return false;
   });
+
+  if (view === "downloads" && statusFilter !== "all") {
+    scoped = scoped.filter((task) => matchesStatusFilter(task, statusFilter));
+  }
 
   if (!normalizedQuery) {
     return scoped;
@@ -35,6 +48,39 @@ export function getVisibleTasks(
         file.path.toLowerCase().includes(normalizedQuery),
       ),
   );
+}
+
+export function getStatusFilterLabel(filter: DownloadStatusFilter): string {
+  const labels: Record<DownloadStatusFilter, string> = {
+    active: "进行中",
+    all: "全部状态",
+    failed: "下载失败",
+    "not-started": "未开始",
+    paused: "暂停",
+    stopped: "停止下载",
+  };
+
+  return labels[filter];
+}
+
+function matchesStatusFilter(
+  task: DownloadTask,
+  filter: DownloadStatusFilter,
+): boolean {
+  switch (filter) {
+    case "not-started":
+      return task.state === "queued";
+    case "active":
+      return task.state === "active" || task.state === "seeding";
+    case "paused":
+      return task.state === "paused";
+    case "failed":
+      return task.state === "failed";
+    case "stopped":
+      return task.state === "removed";
+    case "all":
+      return true;
+  }
 }
 
 export function getViewTitle(view: MainView): string {
@@ -74,40 +120,131 @@ export function getEmptyMessage(view: MainView): string {
   const messages: Record<MainView, string> = {
     downloads: "添加 URL、Magnet、torrent 或 Metalink 任务开始下载。",
     history: "完成的下载任务会显示在这里。",
-    trash: "删除或失败的任务会显示在这里。",
+    trash: "删除的任务会显示在这里。",
     settings: "设置仍在加载。",
   };
 
   return messages[view];
 }
 
-export function getTaskBrand(name: string): {
-  className: string;
-  label: string;
-} {
-  const normalized = name.toLowerCase();
+const fileIconExtensions = new Set([
+  "AEP",
+  "AI",
+  "AVI",
+  "CSV",
+  "DOC",
+  "DOCX",
+  "FIG",
+  "IMG",
+  "INDD",
+  "JPG",
+  "MKV",
+  "MP3",
+  "MP4",
+  "MPEG",
+  "PDF",
+  "PNG",
+  "PPT",
+  "PPTX",
+  "PSD",
+  "RAR",
+  "SVG",
+  "TXT",
+  "WAV",
+  "XLS",
+  "XLSX",
+  "ZIP",
+]);
 
-  if (normalized.includes("ubuntu")) {
-    return { className: "bg-orange-600", label: "U" };
+const extensionAliases: Record<string, string> = {
+  CSS: "Code",
+  HTML: "Code",
+  JS: "Code",
+  JSX: "Code",
+  JPEG: "JPG",
+  JSON: "Code",
+  M4A: "MP3",
+  M4V: "MP4",
+  MD: "TXT",
+  RTF: "DOC",
+  TS: "Code",
+  TSX: "Code",
+  XLSM: "XLSX",
+};
+
+const categoryIcons = new Set([
+  "Audio",
+  "Code",
+  "Documents",
+  "Excel",
+  "Folder",
+  "Image",
+  "PDF",
+  "Video",
+  "Video 2",
+]);
+
+const normalFileIconModules = import.meta.glob(
+  "../../../../../resources/assets/icons/file/normal/**/*.png",
+  {
+    eager: true,
+    import: "default",
+    query: "?url",
+  },
+) as Record<string, string>;
+
+const normalFileIconsByPath = new Map(
+  Object.entries(normalFileIconModules).map(([path, url]) => [
+    path.split("/normal/")[1] ?? path,
+    url,
+  ]),
+);
+
+const defaultFileIconPath = "Color=Icon + B/W, File Type=Documents.png";
+
+export function getTaskFileIconUrl(task: DownloadTask): string {
+  const extension = getTaskFileExtension(task);
+  const matchedExtension = extension
+    ? (extensionAliases[extension] ?? extension)
+    : null;
+
+  if (matchedExtension && fileIconExtensions.has(matchedExtension)) {
+    return createAssetUrl(
+      `Color=Outline + Color, File Type=${matchedExtension}.png`,
+    );
   }
 
-  if (normalized.includes("fedora")) {
-    return { className: "bg-blue-600", label: "F" };
+  if (matchedExtension && categoryIcons.has(matchedExtension)) {
+    return createAssetUrl(
+      "Color=Icon + B",
+      `W, File Type=${matchedExtension}.png`,
+    );
   }
 
-  if (normalized.includes("arch")) {
-    return { className: "bg-sky-500", label: "A" };
-  }
+  return createAssetUrl(defaultFileIconPath);
+}
 
-  if (normalized.includes("windows")) {
-    return { className: "bg-cyan-600", label: "W" };
-  }
+function getTaskFileExtension(task: DownloadTask): string | null {
+  const fileName =
+    task.files
+      .find((file) => file.path)
+      ?.path.split(/[\\/]/)
+      .at(-1) ??
+    task.name ??
+    task.source;
+  const withoutQuery = fileName.split(/[?#]/)[0] ?? "";
+  const match = /\.([a-z0-9]+)$/i.exec(withoutQuery);
 
-  if (normalized.includes("manjaro")) {
-    return { className: "bg-emerald-600", label: "M" };
-  }
+  return match?.[1]?.toUpperCase() ?? null;
+}
 
-  return { className: "bg-primary", label: name.slice(0, 1).toUpperCase() };
+function createAssetUrl(...segments: string[]): string {
+  const path = segments.join("/");
+  return (
+    normalFileIconsByPath.get(path) ??
+    normalFileIconsByPath.get(defaultFileIconPath) ??
+    ""
+  );
 }
 
 export function calculateOverallProgress(snapshot: TaskSnapshot): number {

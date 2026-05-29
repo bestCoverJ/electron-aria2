@@ -1,17 +1,10 @@
 import type { DownloadTaskState, RuntimeStatus } from "@shared/types";
 import { Download, FolderOpen, Plus, RefreshCw, X } from "lucide-react";
 import type { ReactElement } from "react";
+import { useId } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useDownloads } from "@/hooks/use-downloads";
 import { cn } from "@/lib/utils";
@@ -124,13 +117,13 @@ export function Sparkline() {
 
 export function TaskStateBadge({ state }: { state: DownloadTaskState }) {
   const labels: Record<DownloadTaskState, string> = {
-    active: "下载中",
+    active: "进行中",
     completed: "已完成",
-    failed: "失败",
-    paused: "已暂停",
-    queued: "等待中",
-    removed: "已删除",
-    seeding: "做种中",
+    failed: "下载失败",
+    paused: "暂停",
+    queued: "未开始",
+    removed: "停止下载",
+    seeding: "进行中",
   };
 
   const variant =
@@ -140,7 +133,11 @@ export function TaskStateBadge({ state }: { state: DownloadTaskState }) {
         ? "destructive"
         : "outline";
 
-  return <Badge variant={variant}>{labels[state]}</Badge>;
+  return (
+    <Badge className="shrink-0 whitespace-nowrap" variant={variant}>
+      {labels[state]}
+    </Badge>
+  );
 }
 
 export function EmptyState({
@@ -231,6 +228,9 @@ export function DirectoryField({
   recentDirectories: string[];
   value: string;
 }) {
+  const listId = useId();
+  const directories = Array.from(new Set(recentDirectories.filter(Boolean)));
+
   async function handleBrowse() {
     const result = await onBrowse({ defaultPath: value || undefined });
 
@@ -242,36 +242,21 @@ export function DirectoryField({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-medium">{label}</span>
-      <div className="grid grid-cols-[minmax(0,1fr)_10rem_2.25rem] gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_2.25rem] gap-2">
         <Input
           className="h-9"
+          list={listId}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="选择或输入保存目录"
+          placeholder={
+            directories.length > 0 ? "输入或选择保存目录" : "输入保存目录"
+          }
           value={value}
         />
-        {recentDirectories.length > 0 ? (
-          <Select
-            onValueChange={onChange}
-            value={recentDirectories.includes(value) ? value : ""}
-          >
-            <SelectTrigger aria-label="选择历史保存目录">
-              <SelectValue placeholder="历史目录" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {recentDirectories.map((directory) => (
-                  <SelectItem key={directory} value={directory}>
-                    {directory}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        ) : (
-          <Button disabled type="button" variant="outline">
-            无历史
-          </Button>
-        )}
+        <datalist id={listId}>
+          {directories.map((directory) => (
+            <option key={directory} value={directory} />
+          ))}
+        </datalist>
         <Button
           aria-label="选择保存目录"
           onClick={() => void handleBrowse()}
