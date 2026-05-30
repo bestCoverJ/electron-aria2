@@ -31,6 +31,7 @@ export interface DownloadTaskMetadata {
   source: string;
   displayName: string | null;
   directory: string | null;
+  logLines: string[];
   userNote: string | null;
   removeFilesOnDelete: boolean;
   createdAt: string;
@@ -68,6 +69,7 @@ export interface DownloadTask {
   remainingSeconds: number | null;
   files: DownloadTaskFile[];
   errorMessage: string | null;
+  logLines: string[];
   createdAt: string;
   updatedAt: string;
 }

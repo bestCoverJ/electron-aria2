@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useDownloads } from "@/hooks/use-downloads";
 import { cn } from "@/lib/utils";
@@ -42,13 +43,13 @@ export function DetailsPanel({
     return (
       <aside
         aria-label="内容详情"
-        className="min-h-0 border-l bg-white max-[860px]:hidden"
+        className="workspace-surface min-h-0 border-l max-[860px]:hidden"
       />
     );
   }
 
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden border-l bg-white max-[860px]:hidden">
+    <aside className="workspace-surface flex min-h-0 flex-col overflow-hidden border-l max-[860px]:hidden">
       <div className="shrink-0 border-b p-5">
         <div className="flex items-start gap-3">
           <img
@@ -64,41 +65,45 @@ export function DetailsPanel({
             </h2>
             <TaskStateBadge state={task.state} />
           </div>
-          <TaskDetailMenu actions={actions} task={task} />
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              aria-label="打开文件夹"
+              onClick={() => void actions.revealFolder(task.gid)}
+              size="icon"
+              variant="outline"
+            >
+              <FolderOpen aria-hidden="true" size={16} />
+            </Button>
+            <TaskDetailMenu actions={actions} task={task} />
+          </div>
         </div>
-        <div className="mt-4 flex gap-2">
-          {activeView === "history" ? (
+        {activeView === "history" ? (
+          <div className="mt-4 flex gap-2">
             <Button onClick={() => void actions.retry(task.gid)} size="sm">
               <RefreshCw aria-hidden="true" size={14} />
               重新下载
             </Button>
-          ) : null}
-          <Button
-            onClick={() => void actions.revealFolder(task.gid)}
-            size="sm"
-            variant="outline"
-          >
-            <FolderOpen aria-hidden="true" size={14} />
-            打开文件夹
-          </Button>
-        </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 border-b px-5">
         {(["overview", "files", "peers", "log"] as DetailTab[]).map((tab) => (
-          <button
+          <Button
             className={cn(
-              "h-10 border-b-2 px-3 text-xs font-medium transition-colors",
+              "h-10 rounded-none border-b-2 px-3 text-xs",
               activeTab === tab
-                ? "border-primary text-primary"
+                ? "border-primary text-primary hover:text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
             key={tab}
             onClick={() => onTabChange(tab)}
+            size="sm"
             type="button"
+            variant="ghost"
           >
             {getDetailTabLabel(tab)}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -191,7 +196,7 @@ function OverviewDetails({ task }: { task: DownloadTask }) {
           <span className="font-medium">速度</span>
           <span>{formatBytes(task.downloadSpeed)}/s</span>
         </div>
-        <Sparkline />
+        <Sparkline label="实时下载速度波形" value={task.downloadSpeed} />
       </div>
     </>
   );
@@ -205,12 +210,14 @@ function FilesDetails({ task }: { task: DownloadTask }) {
   return (
     <div className="flex flex-col gap-2">
       {task.files.map((file) => (
-        <div className="rounded-md border p-3" key={file.index}>
-          <p className="truncate text-sm font-medium">{file.path}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {formatBytes(file.completedLength)} / {formatBytes(file.length)}
-          </p>
-        </div>
+        <Card className="shadow-none" key={file.index}>
+          <CardContent className="p-3">
+            <p className="truncate text-sm font-medium">{file.path}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatBytes(file.completedLength)} / {formatBytes(file.length)}
+            </p>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -232,10 +239,17 @@ function PeersDetails({ task }: { task: DownloadTask }) {
 }
 
 function LogDetails({ task }: { task: DownloadTask }) {
+  const logText =
+    task.logLines.length > 0
+      ? task.logLines.join("\n")
+      : (task.errorMessage ?? "该任务暂无日志。");
+
   return (
-    <div className="rounded-md border bg-muted/40 p-3 font-mono text-xs">
-      {task.errorMessage ?? "该任务暂无日志。"}
-    </div>
+    <Card className="bg-muted/40 shadow-none">
+      <CardContent className="whitespace-pre-wrap break-words p-3 font-sans text-xs leading-5">
+        {logText}
+      </CardContent>
+    </Card>
   );
 }
 

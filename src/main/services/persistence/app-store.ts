@@ -35,8 +35,13 @@ export class AppStore {
   }
 
   upsertTaskMetadata(
-    metadata: Omit<DownloadTaskMetadata, "createdAt" | "updatedAt"> &
-      Partial<Pick<DownloadTaskMetadata, "createdAt" | "updatedAt">>,
+    metadata: Omit<
+      DownloadTaskMetadata,
+      "createdAt" | "updatedAt" | "logLines"
+    > &
+      Partial<
+        Pick<DownloadTaskMetadata, "createdAt" | "updatedAt" | "logLines">
+      >,
   ): DownloadTaskMetadata {
     const now = new Date().toISOString();
     const current = this.state.taskMetadata;
@@ -44,6 +49,7 @@ export class AppStore {
     const next: DownloadTaskMetadata = {
       ...metadata,
       createdAt: metadata.createdAt ?? existing?.createdAt ?? now,
+      logLines: metadata.logLines ?? existing?.logLines ?? [],
       updatedAt: metadata.updatedAt ?? now,
     };
 
@@ -69,6 +75,27 @@ export class AppStore {
     this.writeState();
   }
 
+  appendTaskLog(gid: string, message: string): void {
+    const existing = this.state.taskMetadata[gid];
+
+    if (!existing) {
+      return;
+    }
+
+    this.state = {
+      ...this.state,
+      taskMetadata: {
+        ...this.state.taskMetadata,
+        [gid]: {
+          ...existing,
+          logLines: [...existing.logLines, formatTaskLogLine(message)],
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    };
+    this.writeState();
+  }
+
   private readState(): PersistedState {
     const defaults = createDefaultState();
 
@@ -90,7 +117,7 @@ export class AppStore {
             ...(stored.settings?.advancedAria2Options ?? {}),
           },
         },
-        taskMetadata: stored.taskMetadata ?? {},
+        taskMetadata: normalizeTaskMetadata(stored.taskMetadata ?? {}),
       };
     } catch {
       return defaults;
@@ -101,6 +128,24 @@ export class AppStore {
     mkdirSync(dirname(this.filePath), { recursive: true });
     writeFileSync(this.filePath, `${JSON.stringify(this.state, null, 2)}\n`);
   }
+}
+
+function normalizeTaskMetadata(
+  metadata: Record<string, DownloadTaskMetadata>,
+): Record<string, DownloadTaskMetadata> {
+  return Object.fromEntries(
+    Object.entries(metadata).map(([gid, item]) => [
+      gid,
+      {
+        ...item,
+        logLines: item.logLines ?? [],
+      },
+    ]),
+  );
+}
+
+function formatTaskLogLine(message: string): string {
+  return `[${new Date().toLocaleString("zh-CN", { hour12: false })}] ${message}`;
 }
 
 function createDefaultState(): PersistedState {

@@ -71,6 +71,7 @@ function projectTask(
         : null,
     files: (task.files ?? []).map(projectFile),
     errorMessage: task.errorMessage ?? null,
+    logLines: metadata?.logLines ?? [],
     createdAt: metadata?.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

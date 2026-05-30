@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useDownloads } from "@/hooks/use-downloads";
 import { normalizeUserError } from "@/lib/tide-api";
@@ -57,7 +58,11 @@ export function AddDownloadDialog({
           recentDirectories={recentDirectories}
           value={directory}
         />
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
         <div className="flex justify-end gap-2">
           <Button onClick={onClose} type="button" variant="outline">
             取消

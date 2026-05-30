@@ -1,9 +1,23 @@
 import type { DownloadTaskState, RuntimeStatus } from "@shared/types";
-import { Download, FolderOpen, Plus, RefreshCw, X } from "lucide-react";
+import {
+  ChevronDown,
+  Download,
+  FolderOpen,
+  Plus,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import type { ReactElement } from "react";
-import { useId } from "react";
+import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useDownloads } from "@/hooks/use-downloads";
@@ -37,10 +51,12 @@ export function EngineLine({
 
 export function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border bg-card/80 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold">{value}</p>
-    </div>
+    <Card className="bg-card/80 shadow-none">
+      <CardContent className="p-3">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="mt-1 truncate text-sm font-semibold">{value}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -93,22 +109,50 @@ export function OptionalNumberField({
   );
 }
 
-export function Sparkline() {
+export function Sparkline({
+  label = "实时速度波形",
+  value = 0,
+}: {
+  label?: string;
+  value?: number;
+}) {
+  const historyRef = useRef<number[]>([]);
+  const history = historyRef.current;
+
+  history.push(Math.max(0, value));
+
+  if (history.length > 24) {
+    history.splice(0, history.length - 24);
+  }
+
+  const values = history.length > 1 ? history : [0, value, 0];
+  const maxValue = Math.max(...values, 1);
+  const points = values
+    .map((item, index) => {
+      const x = (index / Math.max(values.length - 1, 1)) * 120;
+      const y = 24 - (item / maxValue) * 18;
+
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
   return (
     <div className="h-7 min-w-32 flex-1 overflow-hidden rounded-sm">
       <svg
-        aria-hidden="true"
+        aria-label={label}
         className="h-full w-full"
         preserveAspectRatio="none"
+        role="img"
         viewBox="0 0 120 28"
       >
         <polyline
           fill="none"
-          points="0,19 10,17 20,20 30,15 40,18 50,13 60,14 70,10 80,15 90,12 100,16 110,13 120,15"
+          points={points}
           stroke="hsl(var(--primary))"
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth="2"
+          style={{ transition: "all 280ms ease" }}
         />
       </svg>
     </div>
@@ -228,7 +272,6 @@ export function DirectoryField({
   recentDirectories: string[];
   value: string;
 }) {
-  const listId = useId();
   const directories = Array.from(new Set(recentDirectories.filter(Boolean)));
 
   async function handleBrowse() {
@@ -242,21 +285,37 @@ export function DirectoryField({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-medium">{label}</span>
-      <div className="grid grid-cols-[minmax(0,1fr)_2.25rem] gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_2.25rem_2.25rem] gap-2">
         <Input
           className="h-9"
-          list={listId}
           onChange={(event) => onChange(event.target.value)}
-          placeholder={
-            directories.length > 0 ? "输入或选择保存目录" : "输入保存目录"
-          }
+          placeholder="输入保存目录"
           value={value}
         />
-        <datalist id={listId}>
-          {directories.map((directory) => (
-            <option key={directory} value={directory} />
-          ))}
-        </datalist>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label="选择最近保存目录"
+              disabled={directories.length === 0}
+              size="icon"
+              type="button"
+              variant="outline"
+            >
+              <ChevronDown aria-hidden="true" size={15} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            {directories.map((directory) => (
+              <DropdownMenuItem
+                className="max-w-80"
+                key={directory}
+                onClick={() => onChange(directory)}
+              >
+                <span className="truncate">{directory}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
           aria-label="选择保存目录"
           onClick={() => void handleBrowse()}

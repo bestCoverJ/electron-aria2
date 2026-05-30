@@ -1,10 +1,12 @@
-import { app, BrowserWindow, nativeTheme, type Rectangle } from "electron";
+import { app, BrowserWindow, type Rectangle } from "electron";
 import { join } from "node:path";
 import { registerIpcHandlers } from "./ipc/register";
 import { Aria2Runtime } from "./services/aria2";
 import { DesktopIntegration } from "./services/desktop";
 import { DownloadManager } from "./services/downloads";
 import { AppStore } from "./services/persistence";
+
+installBrokenPipeGuards();
 
 let mainWindow: BrowserWindow | null = null;
 const aria2Runtime = new Aria2Runtime();
@@ -42,7 +44,7 @@ function createMainWindow(
     resizable: !isCompact,
     minimizable: !isCompact,
     maximizable: !isCompact,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#030852" : "#ffffff",
+    backgroundColor: "#00000000",
     backgroundMaterial: process.platform === "win32" ? "mica" : undefined,
     vibrancy: process.platform === "darwin" ? "sidebar" : undefined,
     visualEffectState: process.platform === "darwin" ? "active" : undefined,
@@ -55,9 +57,13 @@ function createMainWindow(
     },
   });
 
+  mainWindow.webContents.openDevTools();
+
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
   });
+
+  applyWindowBackdrop(mainWindow);
 
   mainWindow.on("close", (event) => {
     if (isRecreatingWindow) {
@@ -77,6 +83,40 @@ function createMainWindow(
   }
 
   return mainWindow;
+}
+
+function applyWindowBackdrop(window: BrowserWindow): void {
+  if (process.platform === "win32") {
+    window.setBackgroundMaterial("mica");
+    return;
+  }
+
+  if (process.platform === "darwin") {
+    window.setVibrancy("sidebar");
+  }
+}
+
+function installBrokenPipeGuards(): void {
+  const ignoreBrokenPipe = (error: Error): void => {
+    if (!isBrokenPipeError(error)) {
+      throw error;
+    }
+  };
+
+  process.stdout.on("error", ignoreBrokenPipe);
+  process.stderr.on("error", ignoreBrokenPipe);
+  process.on("uncaughtException", (error) => {
+    if (isBrokenPipeError(error)) {
+      return;
+    }
+
+    process.removeAllListeners("uncaughtException");
+    throw error;
+  });
+}
+
+function isBrokenPipeError(error: Error): boolean {
+  return "code" in error && (error as NodeJS.ErrnoException).code === "EPIPE";
 }
 
 function recreateMainWindow(mode: "full" | "compact"): void {

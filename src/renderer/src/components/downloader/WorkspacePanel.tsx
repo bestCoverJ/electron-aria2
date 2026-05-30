@@ -2,6 +2,7 @@ import type { AppSettings, DownloadTask } from "@shared/types";
 import type { MouseEvent } from "react";
 import {
   MoreHorizontal,
+  FolderOpen,
   Pause,
   Play,
   Plus,
@@ -10,6 +11,7 @@ import {
   Settings,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -78,7 +80,7 @@ export function WorkspacePanel({
 }) {
   if (activeView === "settings") {
     return (
-      <section className="flex min-h-0 flex-col bg-white">
+      <section className="workspace-surface flex min-h-0 flex-col">
         <WorkspaceHeader
           count={0}
           actions={actions}
@@ -105,7 +107,7 @@ export function WorkspacePanel({
   }
 
   return (
-    <section className="flex min-h-0 flex-col bg-white">
+    <section className="workspace-surface flex min-h-0 flex-col">
       <WorkspaceHeader
         count={tasks.length}
         actions={actions}
@@ -118,9 +120,9 @@ export function WorkspacePanel({
         variant={activeView}
       />
       {error ? (
-        <div className="mx-4 mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
+        <Alert className="mx-4 mt-3 w-auto" variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
       {tasks.length === 0 ? (
         <EmptyState
@@ -153,9 +155,6 @@ export function WorkspacePanel({
           </div>
         </div>
       )}
-      <div className="border-t px-4 py-2 text-center text-xs text-muted-foreground">
-        {tasks.length} 项
-      </div>
     </section>
   );
 }
@@ -190,12 +189,13 @@ function WorkspaceHeader({
 }) {
   return (
     <header className="flex h-12 items-center gap-3 border-b px-4">
-      <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</h1>
+      <h1 className="min-w-0 truncate text-sm font-semibold">{title}</h1>
       {variant !== "settings" ? (
         <Badge className="shrink-0" variant="secondary">
           {count}
         </Badge>
       ) : null}
+      <div className="min-w-0 flex-1" />
       {variant === "downloads" ? (
         <Button onClick={onAdd} size="sm">
           <Plus aria-hidden="true" size={14} />
@@ -273,6 +273,7 @@ const statusFilters: DownloadStatusFilter[] = [
   "not-started",
   "active",
   "paused",
+  "completed",
   "failed",
   "stopped",
 ];
@@ -350,6 +351,24 @@ function TaskQuickAction({
   actions: ReturnType<typeof useDownloads>["actions"];
   task: DownloadTask;
 }) {
+  if (task.state === "completed") {
+    return (
+      <Button
+        aria-label="打开文件夹"
+        onClick={(event) => {
+          event.stopPropagation();
+          void actions.revealFolder(task.gid);
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        size="icon"
+        type="button"
+        variant="outline"
+      >
+        <FolderOpen aria-hidden="true" size={15} />
+      </Button>
+    );
+  }
+
   if (task.state === "active" || task.state === "seeding") {
     return (
       <Button

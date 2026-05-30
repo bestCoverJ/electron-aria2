@@ -13,6 +13,8 @@ import { parseDownloadInput } from "./task-input";
 import { createTaskSnapshot } from "./task-projection";
 
 export class DownloadManager {
+  private readonly observedTasks = new Map<string, TaskLogCheckpoint>();
+
   constructor(
     private readonly runtime: Aria2Runtime,
     private readonly store: AppStore,
@@ -30,16 +32,19 @@ export class DownloadManager {
       userNote: null,
       removeFilesOnDelete: false,
     });
+    this.store.appendTaskLog(gid, `任务已创建：${parsed.source}`);
 
     return { gid };
   }
 
   async pause(gid: string): Promise<void> {
     await this.runtime.getClient().pause(gid);
+    this.store.appendTaskLog(gid, "已请求暂停任务。");
   }
 
   async resume(gid: string): Promise<void> {
     await this.runtime.getClient().unpause(gid);
+    this.store.appendTaskLog(gid, "已请求继续任务。");
   }
 
   async pauseAll(): Promise<void> {
@@ -91,6 +96,7 @@ export class DownloadManager {
         ...metadata,
         removeFilesOnDelete: removeFiles ?? metadata.removeFilesOnDelete,
       });
+      this.store.appendTaskLog(gid, "任务已从列表移除。");
     }
 
     if (removeFiles && task?.files) {
@@ -125,6 +131,7 @@ export class DownloadManager {
       gid: nextGid,
       createdAt: metadata.createdAt,
     });
+    this.store.appendTaskLog(nextGid, `已重新创建任务，来源任务：${gid}`);
 
     return {
       gid: nextGid,
@@ -215,9 +222,11 @@ export class DownloadManager {
       client.tellWaiting<Aria2Task>(),
       client.tellStopped<Aria2Task>(),
     ]);
+    const tasks = [...active, ...waiting, ...stopped];
+    this.observeTaskLogs(tasks);
 
     return createTaskSnapshot(
-      [...active, ...waiting, ...stopped],
+      tasks,
       this.store.listTaskMetadata(),
       this.runtime.getStatus(),
     );
@@ -238,6 +247,122 @@ export class DownloadManager {
 
     return [...active, ...waiting, ...stopped];
   }
+
+  private observeTaskLogs(tasks: Aria2Task[]): void {
+    for (const task of tasks) {
+      const metadata = this.store.getTaskMetadata(task.gid);
+
+      if (!metadata) {
+        continue;
+      }
+
+      const checkpoint = this.observedTasks.get(task.gid);
+      const status = describeAria2Status(task);
+      const progress = getProgressPercent(task);
+      const progressCheckpoint = Math.floor(progress / 5) * 5;
+      const completedLength = parseByteCount(task.completedLength);
+      const totalLength = parseByteCount(task.totalLength);
+      const downloadSpeed = parseByteCount(task.downloadSpeed);
+
+      if (!checkpoint || checkpoint.status !== task.status) {
+        this.store.appendTaskLog(task.gid, `任务状态：${status}`);
+      }
+
+      if (
+        task.status === "complete" &&
+        (!checkpoint || checkpoint.status !== "complete")
+      ) {
+        this.store.appendTaskLog(task.gid, "下载完成。");
+      }
+
+      if (
+        task.status === "error" &&
+        (!checkpoint || checkpoint.errorMessage !== task.errorMessage)
+      ) {
+        this.store.appendTaskLog(
+          task.gid,
+          `下载失败：${task.errorMessage ?? task.errorCode ?? "未知错误"}`,
+        );
+      }
+
+      if (
+        progressCheckpoint !== checkpoint?.progressCheckpoint ||
+        completedLength !== checkpoint.completedLength
+      ) {
+        this.store.appendTaskLog(
+          task.gid,
+          `下载进度 ${Math.round(progress)}%（${formatBytes(
+            completedLength,
+          )} / ${formatBytes(totalLength)}），速度 ${formatBytes(
+            downloadSpeed,
+          )}/s。`,
+        );
+      }
+
+      this.observedTasks.set(task.gid, {
+        completedLength,
+        errorMessage: task.errorMessage ?? null,
+        progressCheckpoint,
+        status: task.status,
+      });
+    }
+  }
+}
+
+interface TaskLogCheckpoint {
+  completedLength: number;
+  errorMessage: string | null;
+  progressCheckpoint: number;
+  status: Aria2Task["status"];
+}
+
+function describeAria2Status(task: Aria2Task): string {
+  switch (task.status) {
+    case "active":
+      return "下载中";
+    case "waiting":
+      return "等待中";
+    case "paused":
+      return "暂停";
+    case "complete":
+      return "已完成";
+    case "error":
+      return "下载失败";
+    case "removed":
+      return "已移除";
+  }
+}
+
+function getProgressPercent(task: Aria2Task): number {
+  const totalLength = parseByteCount(task.totalLength);
+  const completedLength = parseByteCount(task.completedLength);
+
+  if (totalLength <= 0) {
+    return 0;
+  }
+
+  return Math.min(100, (completedLength / totalLength) * 100);
+}
+
+function parseByteCount(value: string | undefined): number {
+  const parsed = Number.parseInt(value ?? "0", 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatBytes(value: number): string {
+  if (value <= 0) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const unitIndex = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(value) / Math.log(1024)),
+  );
+
+  return `${(value / 1024 ** unitIndex).toFixed(unitIndex === 0 ? 0 : 1)} ${
+    units[unitIndex]
+  }`;
 }
 
 async function assertPathAccessible(path: string): Promise<void> {

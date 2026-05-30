@@ -7,6 +7,7 @@ export type DownloadStatusFilter =
   | "not-started"
   | "active"
   | "paused"
+  | "completed"
   | "failed"
   | "stopped";
 
@@ -27,7 +28,7 @@ export function getVisibleTasks(
     }
 
     if (view === "downloads") {
-      return task.state !== "completed" && task.state !== "removed";
+      return task.state !== "removed";
     }
 
     return false;
@@ -54,6 +55,7 @@ export function getStatusFilterLabel(filter: DownloadStatusFilter): string {
   const labels: Record<DownloadStatusFilter, string> = {
     active: "进行中",
     all: "全部状态",
+    completed: "已完成",
     failed: "下载失败",
     "not-started": "未开始",
     paused: "暂停",
@@ -74,6 +76,8 @@ function matchesStatusFilter(
       return task.state === "active" || task.state === "seeding";
     case "paused":
       return task.state === "paused";
+    case "completed":
+      return task.state === "completed";
     case "failed":
       return task.state === "failed";
     case "stopped":

@@ -39,6 +39,7 @@ export class Aria2Runtime {
   private process: ChildProcessWithoutNullStreams | null = null;
   private client: Aria2RpcClient | null = null;
   private lastStartOptions: Aria2RuntimeStartOptions | null = null;
+  private recentProcessOutput: string[] = [];
   private restartAttempts = 0;
   private isShuttingDown = false;
 
@@ -104,12 +105,16 @@ export class Aria2Runtime {
       startedAt: null,
     };
 
+    this.recentProcessOutput = [];
     this.process = spawn(this.paths.binaryPath, args, {
       cwd: this.paths.dataDirectory,
       windowsHide: true,
     });
 
     const child = this.process;
+    attachProcessOutput(child, (chunk) =>
+      appendRecentOutput(this.recentProcessOutput, chunk),
+    );
 
     child.once("error", (error) => {
       this.status = {
@@ -141,9 +146,14 @@ export class Aria2Runtime {
       this.client = null;
       this.status = {
         availability: "unavailable",
-        message: `aria2 RPC did not become ready: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        message: [
+          `aria2 RPC did not become ready: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          formatProcessOutput(this.recentProcessOutput),
+        ]
+          .filter(Boolean)
+          .join(" "),
         pid: null,
         rpcPort: null,
         startedAt: null,
@@ -212,9 +222,14 @@ export class Aria2Runtime {
 
     this.status = {
       availability: canRetry ? "starting" : "unavailable",
-      message: `aria2 exited${code === null ? "" : ` with code ${code}`}${
-        signal ? ` and signal ${signal}` : ""
-      }.${canRetry ? " Restarting runtime." : ""}`,
+      message: [
+        `aria2 exited${code === null ? "" : ` with code ${code}`}${
+          signal ? ` and signal ${signal}` : ""
+        }.${canRetry ? " Restarting runtime." : ""}`,
+        formatProcessOutput(this.recentProcessOutput),
+      ]
+        .filter(Boolean)
+        .join(" "),
       pid: null,
       rpcPort: null,
       startedAt: null,
@@ -229,6 +244,35 @@ export class Aria2Runtime {
       }, 1000);
     }
   }
+}
+
+function attachProcessOutput(
+  child: ChildProcessWithoutNullStreams,
+  append: (chunk: string) => void,
+): void {
+  child.stdout.on("data", (data: Buffer | string) => append(String(data)));
+  child.stderr.on("data", (data: Buffer | string) => append(String(data)));
+}
+
+function appendRecentOutput(output: string[], chunk: string): void {
+  const normalized = chunk
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  output.push(...normalized);
+
+  if (output.length > 8) {
+    output.splice(0, output.length - 8);
+  }
+}
+
+function formatProcessOutput(output: string[]): string | null {
+  if (output.length === 0) {
+    return null;
+  }
+
+  return `aria2 output: ${output.join(" ")}`;
 }
 
 function buildAria2Args(

@@ -1,4 +1,5 @@
-import type { DownloadTask, TaskSnapshot } from "@shared/types";
+import type { TaskSnapshot } from "@shared/types";
+import { useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
@@ -16,7 +17,7 @@ export function StatusBar({
   snapshot: TaskSnapshot;
 }) {
   return (
-    <footer className="grid h-14 shrink-0 grid-cols-[minmax(190px,0.9fr)_220px_minmax(180px,1fr)_226px] border-t bg-white/88 backdrop-blur-xl max-[900px]:grid-cols-[1fr_180px_210px]">
+    <footer className="status-glass grid h-14 shrink-0 grid-cols-[minmax(190px,0.9fr)_220px_minmax(180px,1fr)_226px] max-[900px]:grid-cols-[1fr_180px_210px]">
       <StatusBlock
         label="总进度"
         value={`${formatBytes(getCompletedBytes(snapshot.tasks))} / ${formatBytes(
@@ -35,10 +36,7 @@ export function StatusBar({
           label="速度"
           value={`${formatBytes(snapshot.summary.downloadSpeed)}/s`}
         />
-        <SpeedWaveform
-          tasks={snapshot.tasks}
-          totalSpeed={snapshot.summary.downloadSpeed}
-        />
+        <SpeedWaveform totalSpeed={snapshot.summary.downloadSpeed} />
       </div>
       <div className="flex items-center border-l px-4">
         <EngineLine
@@ -65,31 +63,21 @@ function getEngineStatusLabel(
   return "引擎加载失败";
 }
 
-function SpeedWaveform({
-  tasks,
-  totalSpeed,
-}: {
-  tasks: DownloadTask[];
-  totalSpeed: number;
-}) {
-  const activeSpeeds = tasks
-    .map((task) => task.downloadSpeed)
-    .filter((speed) => speed > 0);
+function SpeedWaveform({ totalSpeed }: { totalSpeed: number }) {
+  const historyRef = useRef<number[]>([]);
+  const history = historyRef.current;
 
-  if (totalSpeed <= 0 || activeSpeeds.length === 0) {
-    return <div aria-hidden="true" className="h-7 min-w-32 flex-1" />;
+  history.push(Math.max(0, totalSpeed));
+
+  if (history.length > 24) {
+    history.splice(0, history.length - 24);
   }
 
-  const values = Array.from({ length: 12 }, (_, index) => {
-    const base = activeSpeeds[index % activeSpeeds.length] ?? totalSpeed;
-    const variation = 0.72 + ((index * 37) % 10) / 25;
-
-    return Math.max(1, Math.round(base * variation));
-  });
-  const maxValue = Math.max(totalSpeed, ...values, 1);
+  const values = history.length > 1 ? history : [0, totalSpeed, 0];
+  const maxValue = Math.max(...values, 1);
   const points = values
     .map((value, index) => {
-      const x = (index / (values.length - 1)) * 120;
+      const x = (index / Math.max(values.length - 1, 1)) * 120;
       const y = 24 - (value / maxValue) * 18;
 
       return `${x.toFixed(1)},${y.toFixed(1)}`;
@@ -112,6 +100,7 @@ function SpeedWaveform({
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth="2"
+          style={{ transition: "all 280ms ease" }}
         />
       </svg>
     </div>
