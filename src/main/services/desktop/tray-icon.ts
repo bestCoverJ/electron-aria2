@@ -1,6 +1,19 @@
-import { nativeImage } from "electron";
+import { app, nativeImage } from "electron";
+import { join } from "node:path";
+
+export function getAppIconPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, "assets", "icons", "tide-logo.png")
+    : join(app.getAppPath(), "resources", "assets", "icons", "tide-logo.png");
+}
 
 export function createTrayIcon() {
+  const image = nativeImage.createFromPath(getAppIconPath());
+
+  if (!image.isEmpty()) {
+    return image.resize({ height: 32, width: 32 });
+  }
+
   const svg = encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
       <rect width="32" height="32" rx="8" fill="#0d9488"/>

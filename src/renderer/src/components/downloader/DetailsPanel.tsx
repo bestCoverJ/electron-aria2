@@ -43,24 +43,24 @@ export function DetailsPanel({
     return (
       <aside
         aria-label="内容详情"
-        className="workspace-surface min-h-0 border-l max-[860px]:hidden"
+        className="workspace-surface min-h-0 border-l"
       />
     );
   }
 
   return (
-    <aside className="workspace-surface flex min-h-0 flex-col overflow-hidden border-l max-[860px]:hidden">
-      <div className="shrink-0 border-b p-5">
+    <aside className="workspace-surface flex min-h-0 flex-col overflow-hidden border-l">
+      <div className="shrink-0 border-b p-4 min-[1040px]:p-5">
         <div className="flex items-start gap-3">
           <img
             alt=""
             aria-hidden="true"
-            className="size-12 shrink-0 object-contain"
+            className="size-10 shrink-0 object-contain min-[1040px]:size-12"
             draggable={false}
             src={getTaskFileIconUrl(task)}
           />
           <div className="min-w-0 flex-1">
-            <h2 className="line-clamp-3 text-base font-semibold">
+            <h2 className="line-clamp-3 text-sm font-semibold min-[1040px]:text-base">
               {task.name}
             </h2>
             <TaskStateBadge state={task.state} />
@@ -87,7 +87,7 @@ export function DetailsPanel({
         ) : null}
       </div>
 
-      <div className="flex shrink-0 border-b px-5">
+      <div className="flex shrink-0 border-b px-3 min-[1040px]:px-5">
         {(["overview", "files", "peers", "log"] as DetailTab[]).map((tab) => (
           <Button
             className={cn(
@@ -107,8 +107,8 @@ export function DetailsPanel({
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto p-5">
-        <div className="flex flex-col gap-5">
+      <div className="min-h-0 flex-1 overflow-auto p-4 min-[1040px]:p-5">
+        <div className="flex flex-col gap-4 min-[1040px]:gap-5">
           {activeTab === "overview" ? (
             <OverviewDetails task={task} />
           ) : activeTab === "files" ? (

@@ -60,6 +60,14 @@
     ],
     "extraResources": [
       {
+        "from": "resources/assets",
+        "to": "assets",
+        "filter": [
+          "icons/tide-logo.png",
+          "icons/tide-logo.ico"
+        ]
+      },
+      {
         "from": "resources/aria2",
         "to": "aria2",
         "filter": [
@@ -71,6 +79,7 @@
       "resources/aria2/**"
     ],
     "win": {
+      "icon": "resources/assets/icons/tide-logo.ico",
       "target": [
         "nsis",
         "zip"
@@ -79,6 +88,7 @@
       "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
     },
     "mac": {
+      "icon": "resources/assets/icons/tide-logo.png",
       "target": [
         "dmg",
         "zip"
@@ -89,6 +99,7 @@
       "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
     },
     "linux": {
+      "icon": "resources/assets/icons/tide-logo.png",
       "target": [
         "AppImage",
         "tar.gz"

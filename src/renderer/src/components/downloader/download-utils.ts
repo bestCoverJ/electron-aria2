@@ -1,5 +1,5 @@
 import type { DownloadTask, RuntimeStatus, TaskSnapshot } from "@shared/types";
-import { Download, History, Settings, Trash2 } from "lucide-react";
+import { Download, History, Info, Settings, Trash2 } from "lucide-react";
 import type { MainView } from "./types";
 
 export type DownloadStatusFilter =
@@ -93,6 +93,7 @@ export function getViewTitle(view: MainView): string {
     history: "历史记录",
     trash: "垃圾箱",
     settings: "设置",
+    about: "关于 Tide X",
   };
 
   return labels[view];
@@ -104,6 +105,7 @@ export function getViewIcon(view: MainView): typeof Download {
     history: History,
     trash: Trash2,
     settings: Settings,
+    about: Info,
   };
 
   return icons[view];
@@ -115,6 +117,7 @@ export function getEmptyTitle(view: MainView): string {
     history: "暂无历史记录",
     trash: "垃圾箱为空",
     settings: "设置不可用",
+    about: "关于信息不可用",
   };
 
   return titles[view];
@@ -126,6 +129,7 @@ export function getEmptyMessage(view: MainView): string {
     history: "完成的下载任务会显示在这里。",
     trash: "删除的任务会显示在这里。",
     settings: "设置仍在加载。",
+    about: "产品与开源组件信息仍在加载。",
   };
 
   return messages[view];

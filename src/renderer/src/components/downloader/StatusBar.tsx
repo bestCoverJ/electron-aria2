@@ -67,6 +67,10 @@ function SpeedWaveform({ totalSpeed }: { totalSpeed: number }) {
   const historyRef = useRef<number[]>([]);
   const history = historyRef.current;
 
+  if (totalSpeed <= 0 && history.length === 0) {
+    history.push(0, 0, 0);
+  }
+
   history.push(Math.max(0, totalSpeed));
 
   if (history.length > 24) {

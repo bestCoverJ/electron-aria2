@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useDownloads } from "@/hooks/use-downloads";
 import { cn } from "@/lib/utils";
+import { AboutWorkspace } from "./AboutWorkspace";
 import {
   formatBytes,
   formatDate,
@@ -78,6 +79,26 @@ export function WorkspacePanel({
   statusFilter: DownloadStatusFilter;
   tasks: DownloadTask[];
 }) {
+  if (activeView === "about") {
+    return (
+      <section className="workspace-surface flex min-h-0 flex-col">
+        <WorkspaceHeader
+          count={0}
+          actions={actions}
+          onAdd={onAdd}
+          query={query}
+          setQuery={setQuery}
+          setStatusFilter={setStatusFilter}
+          statusFilter={statusFilter}
+          title="关于 Tide X"
+          variant="about"
+          compact={false}
+        />
+        <AboutWorkspace />
+      </section>
+    );
+  }
+
   if (activeView === "settings") {
     return (
       <section className="workspace-surface flex min-h-0 flex-col">
@@ -91,6 +112,7 @@ export function WorkspacePanel({
           statusFilter={statusFilter}
           title="设置"
           variant="settings"
+          compact={false}
         />
         {settings ? (
           <SettingsWorkspace actions={actions} settings={settings} />
@@ -118,6 +140,7 @@ export function WorkspacePanel({
         statusFilter={statusFilter}
         title={getViewTitle(activeView)}
         variant={activeView}
+        compact={Boolean(selectedGid)}
       />
       {error ? (
         <Alert className="mx-4 mt-3 w-auto" variant="destructive">
@@ -176,8 +199,10 @@ function WorkspaceHeader({
   statusFilter,
   title,
   variant,
+  compact,
 }: {
   actions: ReturnType<typeof useDownloads>["actions"];
+  compact: boolean;
   count: number;
   onAdd: () => void;
   query: string;
@@ -188,21 +213,26 @@ function WorkspaceHeader({
   variant: MainView;
 }) {
   return (
-    <header className="flex h-12 items-center gap-3 border-b px-4">
+    <header className="flex h-12 items-center gap-2 border-b px-3 min-[1040px]:gap-3 min-[1040px]:px-4">
       <h1 className="min-w-0 truncate text-sm font-semibold">{title}</h1>
-      {variant !== "settings" ? (
+      {variant !== "settings" && variant !== "about" && !compact ? (
         <Badge className="shrink-0" variant="secondary">
           {count}
         </Badge>
       ) : null}
       <div className="min-w-0 flex-1" />
       {variant === "downloads" ? (
-        <Button onClick={onAdd} size="sm">
+        <Button
+          aria-label={compact ? "新建下载任务" : undefined}
+          onClick={onAdd}
+          size="sm"
+          title={compact ? "新建" : undefined}
+        >
           <Plus aria-hidden="true" size={14} />
-          新建
+          {compact ? null : "新建"}
         </Button>
       ) : null}
-      {variant !== "settings" ? (
+      {variant !== "settings" && variant !== "about" && !compact ? (
         <>
           {variant === "downloads" ? (
             <Select
@@ -211,7 +241,10 @@ function WorkspaceHeader({
               }
               value={statusFilter}
             >
-              <SelectTrigger aria-label="筛选下载状态" className="h-8 w-28">
+              <SelectTrigger
+                aria-label="筛选下载状态"
+                className="h-8 w-28"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end">

@@ -1,6 +1,7 @@
 import {
   Download,
   History,
+  Info,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -15,6 +16,7 @@ const menuItems: MenuItem[] = [
   { id: "history", label: "历史记录", icon: History },
   { id: "trash", label: "垃圾箱", icon: Trash2 },
   { id: "settings", label: "设置", icon: Settings },
+  { id: "about", label: "关于", icon: Info },
 ];
 
 export function AppSidebar({
@@ -60,7 +62,7 @@ export function AppSidebar({
               aria-current={selected ? "page" : undefined}
               aria-label={collapsed ? item.label : undefined}
               className={cn(
-                "h-10 justify-start gap-3 border border-transparent px-3 text-sm",
+                "h-10 justify-start gap-3 border border-transparent px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring",
                 collapsed && "justify-center px-0",
                 selected
                   ? "border-blue-100 bg-white text-primary shadow-sm hover:bg-white hover:text-primary"

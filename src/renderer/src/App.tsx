@@ -26,7 +26,7 @@ export function App(): ReactElement {
     () => window.location.hash === "#compact",
   );
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
   const visibleTasks = useMemo(
     () => getVisibleTasks(snapshot.tasks, activeView, query, statusFilter),
@@ -58,14 +58,18 @@ export function App(): ReactElement {
           "grid min-h-0 min-w-0 flex-1",
           isSidebarCollapsed
             ? selectedTask
-              ? "grid-cols-[64px_minmax(320px,1fr)_328px]"
+              ? "grid-cols-[64px_minmax(188px,1fr)_minmax(300px,328px)]"
               : "grid-cols-[64px_minmax(0,1fr)]"
             : selectedTask
-              ? "grid-cols-[172px_minmax(320px,1fr)_328px]"
+              ? "grid-cols-[172px_minmax(188px,1fr)_minmax(300px,328px)]"
               : "grid-cols-[172px_minmax(0,1fr)]",
           isSidebarCollapsed
-            ? "max-[860px]:grid-cols-[64px_minmax(0,1fr)]"
-            : "max-[860px]:grid-cols-[164px_minmax(0,1fr)]",
+            ? selectedTask
+              ? "max-[860px]:grid-cols-[64px_minmax(172px,1fr)_minmax(284px,304px)]"
+              : "max-[860px]:grid-cols-[64px_minmax(0,1fr)]"
+            : selectedTask
+              ? "max-[860px]:grid-cols-[164px_minmax(172px,1fr)_minmax(284px,304px)]"
+              : "max-[860px]:grid-cols-[164px_minmax(0,1fr)]",
         )}
       >
         <AppSidebar

@@ -2,14 +2,11 @@ import type { DownloadTaskState, TaskSnapshot } from "@shared/types";
 import {
   app,
   BrowserWindow,
-  dialog,
   Menu,
   Notification,
   Tray,
-  type MessageBoxOptions,
 } from "electron";
 import type { DownloadManager } from "../downloads";
-import type { AppStore } from "../persistence";
 import { createTrayIcon } from "./tray-icon";
 
 export class DesktopIntegration {
@@ -17,11 +14,11 @@ export class DesktopIntegration {
   private notificationInterval: NodeJS.Timeout | null = null;
   private notifiedTasks = new Set<string>();
   private isQuitting = false;
+  private hasShownBackgroundNotice = false;
 
   constructor(
     private readonly getWindow: () => BrowserWindow | null,
     private readonly downloads: DownloadManager,
-    private readonly store: AppStore,
   ) {}
 
   initialize(): void {
@@ -31,6 +28,7 @@ export class DesktopIntegration {
 
     this.createTray();
     this.startNotificationWatcher();
+    void this.refreshTrayMenu();
   }
 
   async handleWindowClose(event: Electron.Event): Promise<void> {
@@ -39,24 +37,8 @@ export class DesktopIntegration {
     }
 
     event.preventDefault();
-
-    const settings = this.store.getSettings();
-    const hasActiveDownloads = await this.hasActiveDownloads();
-
-    if (
-      !hasActiveDownloads &&
-      settings.shutdownBehavior !== "minimize-to-tray"
-    ) {
-      this.quit();
-      return;
-    }
-
-    if (settings.shutdownBehavior === "ask" && hasActiveDownloads) {
-      await this.showCloseChoice();
-      return;
-    }
-
     this.hideToTray();
+    this.showBackgroundNotice();
   }
 
   quit(): void {
@@ -109,7 +91,7 @@ export class DesktopIntegration {
         },
         { type: "separator" },
         {
-          label: "退出",
+          label: "退出 Tide X",
           click: () => this.quit(),
         },
       ]),
@@ -118,9 +100,12 @@ export class DesktopIntegration {
 
   private async refreshTrayMenu(): Promise<void> {
     try {
-      this.updateTrayMenu(await this.downloads.getSnapshot());
+      const snapshot = await this.downloads.getSnapshot();
+      this.updateTrayMenu(snapshot);
+      this.updateTaskbarProgress(snapshot);
     } catch {
       this.updateTrayMenu();
+      this.updateTaskbarProgress();
     }
   }
 
@@ -143,36 +128,34 @@ export class DesktopIntegration {
     this.getWindow()?.hide();
   }
 
-  private async showCloseChoice(): Promise<void> {
+  private updateTaskbarProgress(snapshot?: TaskSnapshot): void {
     const window = this.getWindow();
-    const options: MessageBoxOptions = {
-      type: "question",
-      buttons: ["最小化到托盘", "退出", "取消"],
-      defaultId: 0,
-      cancelId: 2,
-      title: "Tide X",
-      message: "仍有下载任务在运行",
-      detail: "你可以让 Tide X 留在托盘继续下载，或直接退出应用。",
-    };
-    const result = window
-      ? await dialog.showMessageBox(window, options)
-      : await dialog.showMessageBox(options);
 
-    if (result.response === 0) {
-      this.hideToTray();
+    if (!window) {
       return;
     }
 
-    if (result.response === 1) {
-      this.quit();
-    }
+    window.setProgressBar(snapshot ? getTaskbarProgress(snapshot) : -1);
   }
 
-  private startNotificationWatcher(): void {
+  private showBackgroundNotice(): void {
+    if (this.hasShownBackgroundNotice) {
+      return;
+    }
+
+    this.hasShownBackgroundNotice = true;
+
     if (!Notification.isSupported()) {
       return;
     }
 
+    new Notification({
+      title: "Tide X",
+      body: "应用在后台运行，请手动退出",
+    }).show();
+  }
+
+  private startNotificationWatcher(): void {
     this.notificationInterval = setInterval(() => {
       void this.checkTaskNotifications();
     }, 3000);
@@ -189,6 +172,11 @@ export class DesktopIntegration {
     try {
       const snapshot = await this.downloads.getSnapshot();
       this.updateTrayMenu(snapshot);
+      this.updateTaskbarProgress(snapshot);
+
+      if (!Notification.isSupported()) {
+        return;
+      }
 
       for (const task of snapshot.tasks) {
         if (!shouldNotify(task.state) || this.notifiedTasks.has(task.gid)) {
@@ -213,21 +201,38 @@ export class DesktopIntegration {
       }
     } catch {
       this.updateTrayMenu();
+      this.updateTaskbarProgress();
     }
   }
 
-  private async hasActiveDownloads(): Promise<boolean> {
-    try {
-      const snapshot = await this.downloads.getSnapshot();
-      return (
-        snapshot.summary.activeCount > 0 || snapshot.summary.queuedCount > 0
-      );
-    } catch {
-      return false;
-    }
-  }
 }
 
 function shouldNotify(state: DownloadTaskState): boolean {
   return state === "completed" || state === "failed";
+}
+
+function getTaskbarProgress(snapshot: TaskSnapshot): number {
+  const activeTasks = snapshot.tasks.filter(
+    (task) => task.state === "active" || task.state === "seeding",
+  );
+
+  if (activeTasks.length === 0) {
+    return -1;
+  }
+
+  const totalBytes = activeTasks.reduce(
+    (total, task) => total + (task.totalLength ?? 0),
+    0,
+  );
+
+  if (totalBytes <= 0) {
+    return 2;
+  }
+
+  const completedBytes = activeTasks.reduce(
+    (total, task) => total + task.completedLength,
+    0,
+  );
+
+  return Math.min(1, Math.max(0, completedBytes / totalBytes));
 }

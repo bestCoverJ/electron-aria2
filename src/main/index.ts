@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { registerIpcHandlers } from "./ipc/register";
 import { Aria2Runtime } from "./services/aria2";
 import { DesktopIntegration } from "./services/desktop";
+import { getAppIconPath } from "./services/desktop/tray-icon";
 import { DownloadManager } from "./services/downloads";
 import { AppStore } from "./services/persistence";
 
@@ -29,7 +30,7 @@ function createMainWindow(
   const isCompact = mode === "compact";
   const bounds = isCompact
     ? { width: 420, height: 240 }
-    : (lastFullBounds ?? { width: 980, height: 640 });
+    : (lastFullBounds ?? { width: 760, height: 480 });
 
   mainWindow = new BrowserWindow({
     width: bounds.width,
@@ -37,8 +38,9 @@ function createMainWindow(
     x: "x" in bounds ? bounds.x : undefined,
     y: "y" in bounds ? bounds.y : undefined,
     minWidth: isCompact ? 360 : 760,
-    minHeight: isCompact ? 200 : 520,
+    minHeight: isCompact ? 200 : 480,
     title: "Tide X",
+    icon: getAppIconPath(),
     autoHideMenuBar: true,
     frame: !isCompact,
     resizable: !isCompact,
@@ -156,7 +158,6 @@ app.whenReady().then(async () => {
   desktopIntegration = new DesktopIntegration(
     () => mainWindow,
     downloads,
-    appStore,
   );
   desktopIntegration.initialize();
   createMainWindow();
