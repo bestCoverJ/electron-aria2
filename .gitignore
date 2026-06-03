@@ -1,7 +1,12 @@
 node_modules
+website/node_modules
 dist
+website/dist
 dist-electron
 out
+website/.astro
+website/.astro-cache
+.pnpm-store
 .DS_Store
 *.log
 *.tsbuildinfo

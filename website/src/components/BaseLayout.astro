@@ -1,0 +1,32 @@
+---
+import SiteFooter from "./SiteFooter.astro";
+import SiteHeader from "./SiteHeader.astro";
+import "@styles/global.less";
+import { site } from "@data/site";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description = site.longDescription } = Astro.props;
+const pageTitle = title ? `${title} - ${site.name}` : `${site.name} - ${site.description}`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/images/tide-logo.png" />
+    <title>{pageTitle}</title>
+  </head>
+  <body>
+    <SiteHeader />
+    <main>
+      <slot />
+    </main>
+    <SiteFooter />
+  </body>
+</html>

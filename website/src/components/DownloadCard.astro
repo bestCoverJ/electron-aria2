@@ -1,0 +1,32 @@
+---
+import type { PlatformDownload } from "@data/downloads";
+
+interface Props {
+  item: PlatformDownload;
+}
+
+const { item } = Astro.props;
+const available = item.status === "available" && item.downloadUrl;
+---
+
+<article class="download-card">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <h2>{item.platform}</h2>
+    <span class={`badge ${item.status === "available" ? "" : "neutral"}`}>{item.statusLabel}</span>
+  </div>
+  <ul class="meta-list" aria-label={`${item.platform} 下载信息`}>
+    <li><span>版本</span><strong>{item.version}</strong></li>
+    <li><span>架构</span><strong>{item.architecture}</strong></li>
+    <li><span>格式</span><strong>{item.packageTypes.join(" / ")}</strong></li>
+    <li><span>大小</span><strong>{item.size ?? "待发布"}</strong></li>
+    <li><span>SHA256</span><strong>{item.checksum ?? "待发布"}</strong></li>
+  </ul>
+  {
+    available ? (
+      <a class="button" href={item.downloadUrl}>{item.primaryActionLabel}</a>
+    ) : (
+      <span class="button disabled" aria-disabled="true">{item.primaryActionLabel}</span>
+    )
+  }
+  <p class="muted">{item.caveat}</p>
+</article>

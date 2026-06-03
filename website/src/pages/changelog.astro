@@ -1,0 +1,20 @@
+---
+import BaseLayout from "@components/BaseLayout.astro";
+import ReleaseCard from "@components/ReleaseCard.astro";
+import { getCollection } from "astro:content";
+
+const releases = (await getCollection("releases")).sort((a, b) => b.data.date.localeCompare(a.data.date));
+---
+
+<BaseLayout title="更新记录" description="查看 Tide X 的版本更新、新增能力、改进、修复和已知限制。">
+  <section class="section">
+    <div class="container">
+      <p class="eyebrow">Changelog</p>
+      <h1 class="page-title">更新记录</h1>
+      <p class="lead">每个版本都分开列出新增、改进、修复和限制，避免把发布风险藏在漂亮页面后面。</p>
+      <div class="release-list">
+        {releases.map((release) => <ReleaseCard release={release} />)}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,108 @@
+---
+import BaseLayout from "@components/BaseLayout.astro";
+import NumberedFeature from "@components/NumberedFeature.astro";
+import SectionHeading from "@components/SectionHeading.astro";
+import { openSourceInfo, principles, site } from "@data/site";
+
+const numberedPrinciples = principles.map((item, index) => ({
+  number: String(index + 1).padStart(2, "0"),
+  ...item
+}));
+---
+
+<BaseLayout title="关于" description="了解 Tide X 的产品原则、边界和 aria2 运行时上下文。">
+  <section class="section">
+    <div class="container split">
+      <div>
+        <p class="eyebrow">About</p>
+        <h1 class="page-title">一个清楚、安静的下载工具</h1>
+      </div>
+      <p class="lead">
+        {site.name} 把 aria2 的成熟能力收进一个本地桌面界面。它关心的是任务是否可控、状态是否清楚、发布是否诚实，而不是把下载工具变成内容入口。
+      </p>
+    </div>
+  </section>
+
+  <section class="section-tight">
+    <div class="container media-grid">
+      <figure class="media-frame">
+        <img
+          src="/images/tide-dashboard-macos.png"
+          width="1440"
+          height="1000"
+          alt="Tide X 下载任务详情界面概念图"
+          loading="lazy"
+        />
+      </figure>
+      <div class="visual-panel">
+        <img src="/images/tide-logo.png" width="120" height="120" alt="Tide X 应用图标" loading="lazy" />
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <SectionHeading
+        eyebrow="Principles"
+        title="产品原则"
+        lead="Tide X 的边界和它的能力一样重要。"
+      />
+      <div class="number-grid">
+        {numberedPrinciples.map((item) => <NumberedFeature {...item} />)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container split">
+      <SectionHeading
+        eyebrow="Open source"
+        title={openSourceInfo.title}
+        lead={openSourceInfo.description}
+      />
+      <div>
+        <div class="opensource-grid md:grid-cols-3">
+          {openSourceInfo.cards.map((card) => (
+            <article class="opensource-card">
+              <h3>{card.title}</h3>
+              <p>{card.description}</p>
+            </article>
+          ))}
+        </div>
+        <ul class="opensource-meta" aria-label="Tide X 开源项目信息">
+          <li>
+            <span>{openSourceInfo.repositoryLabel}</span>
+            <strong><a href={openSourceInfo.repositoryUrl}>{openSourceInfo.repositoryUrl}</a></strong>
+          </li>
+          <li>
+            <span>{openSourceInfo.licenseLabel}</span>
+            <strong>{openSourceInfo.licenseValue}</strong>
+          </li>
+          <li>
+            <span>技术栈</span>
+            <strong>{openSourceInfo.stack.join(" / ")}</strong>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-tight">
+    <div class="container split">
+      <SectionHeading
+        eyebrow="Third-party runtime"
+        title="关于 aria2"
+        lead="Tide X 使用随包分发的 aria2c 作为下载运行时。第三方许可、更新和二进制替换需要随发布流程一起维护。"
+      />
+      <div class="note-band">
+        <p>
+          aria2 相关 notices 和二进制资产位于仓库的 <strong>resources/aria2</strong> 目录。公开发布前应确认对应平台二进制、许可文本、校验和、签名和杀软误报说明都已准备好。
+        </p>
+        <div class="button-row">
+          <a class="button secondary" href="/download/">查看下载状态</a>
+          <a class="button secondary" href="/changelog/">查看更新记录</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

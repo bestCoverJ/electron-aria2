@@ -1,0 +1,42 @@
+---
+import BaseLayout from "@components/BaseLayout.astro";
+import DownloadCard from "@components/DownloadCard.astro";
+import SectionHeading from "@components/SectionHeading.astro";
+import { downloads } from "@data/downloads";
+---
+
+<BaseLayout title="下载" description="下载 Tide X 桌面下载管理器，并查看各平台发布状态、版本、校验和与限制。">
+  <section class="section">
+    <div class="container">
+      <p class="eyebrow">Downloads</p>
+      <h1 class="page-title">下载 Tide X</h1>
+      <p class="lead">
+        当前页面按平台展示发布状态。可用项会提供下载入口；缺失运行资产、签名或公证要求的平台会明确标记为准备中。
+      </p>
+    </div>
+  </section>
+
+  <section class="section-tight">
+    <div class="container card-grid">
+      {downloads.map((item) => <DownloadCard item={item} />)}
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container split">
+      <SectionHeading
+        eyebrow="Release notes"
+        title="发布前需要知道的事"
+        lead="下载器和网络运行时容易触发系统安全提示，公开分发时需要把签名、校验和和第三方 notices 一起交代清楚。"
+      />
+      <div class="note-band">
+        <ul class="check-list">
+          <li>Windows 包建议完成 Authenticode 签名，降低 SmartScreen 提示概率。</li>
+          <li>macOS 包需要 Developer ID、hardened runtime 和 notarization。</li>
+          <li>Linux AppImage 与 tar.gz 需要保留 aria2c 可执行位。</li>
+          <li>每次更新 aria2 二进制后都应重新运行运行时和下载流验证。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

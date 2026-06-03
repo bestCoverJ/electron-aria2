@@ -1,0 +1,39 @@
+---
+interface Props {
+  release: {
+    data: {
+      version: string;
+      date: string;
+      summary: string;
+      added: string[];
+      improved: string[];
+      fixed: string[];
+      limitations: string[];
+    };
+  };
+}
+
+const { release } = Astro.props;
+const groups = [
+  ["新增", release.data.added],
+  ["改进", release.data.improved],
+  ["修复", release.data.fixed],
+  ["已知限制", release.data.limitations]
+].filter(([, items]) => Array.isArray(items) && items.length > 0);
+---
+
+<article class="release-card">
+  <span class="badge">v{release.data.version}</span>
+  <h2 style="margin-top:18px">{release.data.summary}</h2>
+  <p class="muted">{release.data.date}</p>
+  <div class="release-columns">
+    {groups.map(([label, items]) => (
+      <section>
+        <h3>{label}</h3>
+        <ul>
+          {(items as string[]).map((item) => <li>{item}</li>)}
+        </ul>
+      </section>
+    ))}
+  </div>
+</article>

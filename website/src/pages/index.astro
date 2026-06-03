@@ -1,0 +1,140 @@
+---
+import BaseLayout from "@components/BaseLayout.astro";
+import NumberedFeature from "@components/NumberedFeature.astro";
+import SectionHeading from "@components/SectionHeading.astro";
+import { getCollection } from "astro:content";
+import { coreFeatures, detailFeatures, heroStats, workflow } from "@data/features";
+import { downloads } from "@data/downloads";
+import { site } from "@data/site";
+
+const releases = await getCollection("releases");
+const latestRelease = releases.sort((a, b) => b.data.date.localeCompare(a.data.date))[0];
+const availablePlatforms = downloads.filter((item) => item.status === "available");
+---
+
+<BaseLayout>
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <p class="eyebrow">Tide X {site.version}</p>
+        <h1 class="display-title">像潮汐一样稳定持续的下载器</h1>
+        <p class="lead">{site.longDescription}</p>
+        <div class="button-row">
+          <a class="button" href={site.primaryCta.href}>{site.primaryCta.label}</a>
+          <a class="button secondary" href={site.secondaryCta.href}>{site.secondaryCta.label}</a>
+        </div>
+        <div class="stat-row" aria-label="产品概览">
+          {heroStats.map((stat) => (
+            <div class="stat">
+              <strong>{stat.value}</strong>
+              <span>{stat.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div class="hero-media">
+        <figure class="media-frame">
+          <img
+            src="/images/tide-dashboard-windows.png"
+            width="1440"
+            height="1000"
+            alt="Tide X 桌面下载管理器的多屏界面概念图"
+            loading="eager"
+          />
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <SectionHeading
+        eyebrow="Core workflow"
+        title="Just that simple"
+        lead="保留 aria2 的成熟下载能力，把配置、队列、速度和状态细节收进一个本地桌面界面。"
+      />
+      <div class="number-grid">
+        {coreFeatures.map((feature) => <NumberedFeature {...feature} />)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section-tight">
+    <div class="container media-grid" aria-label="Tide X 产品视觉">
+      <figure class="media-frame">
+        <img
+          src="/images/tide-dashboard-macos.png"
+          width="1440"
+          height="1000"
+          alt="Tide X 三栏下载工作区概念图"
+          loading="lazy"
+        />
+      </figure>
+      <div class="media-stack">
+        <div class="visual-panel" aria-label="Tide X 品牌标识">
+          <img src="/images/tide-logo.png" width="120" height="120" alt="Tide X 应用图标" loading="lazy" />
+        </div>
+        <figure class="media-frame">
+          <img
+            src="/images/tide-dashboard-windows.png"
+            width="1440"
+            height="1000"
+            alt="Tide X 下载列表和设置界面概念图"
+            loading="lazy"
+          />
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container split">
+      <SectionHeading
+        eyebrow="Implemented"
+        title="当前已经实现的能力"
+        lead="官网只描述仓库中已经落地或已有发布约束记录的功能，不把未来规划包装成现成能力。"
+      />
+      <ul class="check-list">
+        {detailFeatures.map((feature) => <li>{feature}</li>)}
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <SectionHeading
+        eyebrow="Process"
+        title="Projects and practice"
+        lead="从添加任务到恢复会话，Tide X 把下载管理拆成少量可控步骤。"
+      />
+      <div class="number-grid">
+        {workflow.map((item) => <NumberedFeature {...item} />)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section-tight">
+    <div class="container card-grid">
+      <article class="note-band">
+        <span class="badge">Downloads</span>
+        <h2>可用平台</h2>
+        <p class="muted">
+          {availablePlatforms.map((item) => item.platform).join(" / ")} 预览包信息已准备展示，真实下载 URL 与 SHA256 在发布时补齐。
+        </p>
+        <a class="button secondary" href="/download/">查看下载</a>
+      </article>
+      <article class="note-band">
+        <span class="badge">Changelog</span>
+        <h2>最新版本 {latestRelease.data.version}</h2>
+        <p class="muted">{latestRelease.data.summary}</p>
+        <a class="button secondary" href="/changelog/">阅读更新记录</a>
+      </article>
+      <article class="note-band">
+        <span class="badge neutral">Scope</span>
+        <h2>清楚的边界</h2>
+        <p class="muted">不做内容发现，不暴露公共远程 aria2 控制，不把下载来源推荐混进工具里。</p>
+        <a class="button secondary" href="/about/">了解原则</a>
+      </article>
+    </div>
+  </section>
+</BaseLayout>
