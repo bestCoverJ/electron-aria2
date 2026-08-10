@@ -58,6 +58,9 @@
     "directories": {
       "output": "dist-electron"
     },
+    "publish": {
+      "provider": "github"
+    },
     "electronDist": "node_modules/electron/dist",
     "files": [
       "out/**/*",
