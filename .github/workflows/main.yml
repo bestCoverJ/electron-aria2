@@ -3,23 +3,27 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*' # 仅当推送 v0.1.0, v1.0.0 等标签时触发
-  workflow_dispatch: # 允许在 GitHub 网页端手动触发
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
-  contents: write # 赋予 Workflow 创建 Release 和上传文件的权限
+  contents: write
 
 jobs:
   release:
     runs-on: ${{ matrix.os }}
-    
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Enable Windows Long Path
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -33,33 +37,25 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
-      # 如果你的 scripts 必须依赖 bun，请取消下方注释
-      # - name: Setup Bun
-      #   uses: oven-sh/setup-bun@v2
-
       - name: Install dependencies
-        run: pnpm install --fetch-timeout 100000
+        run: pnpm install
         shell: bash
 
-      # 👇 临时诊断：确认 electron 二进制是否下载成功
-      - name: Check electron binary
-        run: |
-          echo "--- node_modules/electron ---"
-          ls -la node_modules/electron || echo "no electron dir"
-          echo "--- node_modules/electron/dist ---"
-          ls -la node_modules/electron/dist || echo "DIST MISSING (postinstall was skipped)"
-          echo "--- electron path ---"
-          node -e "console.log(require('electron'))" || true
+      - name: Download Electron binary
+        run: node node_modules/electron/install.js
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
         shell: bash
 
-      - name: Install Linux dependencies (AppImage/rpm)
+      - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y rpm dpkg fakeroot
+        shell: bash
 
-      - name: Build and Publish to GitHub Releases
+      - name: Build and Publish
         run: pnpm run dist
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-          # electron-builder 会自动使用 GH_TOKEN 将产物上传到 GitHub Releases
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
