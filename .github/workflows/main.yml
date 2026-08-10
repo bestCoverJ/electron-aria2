@@ -1,0 +1,53 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 仅当推送 v0.1.0, v1.0.0 等标签时触发
+  workflow_dispatch: # 允许在 GitHub 网页端手动触发
+
+permissions:
+  contents: write # 赋予 Workflow 创建 Release 和上传文件的权限
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.3
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      # 如果你的 scripts 必须依赖 bun，请取消下方注释
+      # - name: Setup Bun
+      #   uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Linux dependencies (AppImage/rpm)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm dpkg fakeroot
+
+      - name: Build and Publish to GitHub Releases
+        run: pnpm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          # electron-builder 会自动使用 GH_TOKEN 将产物上传到 GitHub Releases
