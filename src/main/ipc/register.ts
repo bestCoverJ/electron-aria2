@@ -1,4 +1,4 @@
-import { dialog, ipcMain } from "electron";
+import { dialog, ipcMain, nativeTheme } from "electron";
 import type {
   AddDownloadInput,
   AppSettings,
@@ -33,6 +33,7 @@ export function registerIpcHandlers(
     ipcChannels.settingsUpdate,
     async (_event, patch: Partial<AppSettings>) => {
       const settings = await store.updateSettings(patch);
+      nativeTheme.themeSource = settings.theme;
       await runtime.applySettings(settings);
       return settings;
     },
@@ -56,6 +57,24 @@ export function registerIpcHandlers(
   );
 
   ipcMain.handle(ipcChannels.runtimeGetStatus, () => runtime.getStatus());
+
+  ipcMain.handle(ipcChannels.downloadsSelectTaskFile, async () => {
+    const result = await dialog.showOpenDialog({
+      title: "选择 torrent 或 Metalink 文件",
+      properties: ["openFile"],
+      filters: [
+        {
+          name: "下载任务文件",
+          extensions: ["torrent", "metalink", "meta4"],
+        },
+      ],
+    });
+
+    return {
+      canceled: result.canceled,
+      path: result.canceled ? null : (result.filePaths[0] ?? null),
+    };
+  });
 
   ipcMain.handle(ipcChannels.downloadsGetSnapshot, async () => {
     if (runtime.getStatus().availability !== "ready") {

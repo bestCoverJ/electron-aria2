@@ -19,7 +19,7 @@ export function createDefaultSettings(): AppSettings {
 export function createInitialRuntimeStatus(): RuntimeStatus {
   return {
     availability: "unavailable",
-    message: "aria2 runtime has not been initialized.",
+    message: "下载引擎尚未初始化。",
     pid: null,
     rpcPort: null,
     startedAt: null,

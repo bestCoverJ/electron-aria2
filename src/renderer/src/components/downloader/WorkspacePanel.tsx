@@ -6,9 +6,11 @@ import {
   Pause,
   Play,
   Plus,
+  RefreshCw,
   RotateCcw,
   Search,
   Settings,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -143,17 +145,61 @@ export function WorkspacePanel({
         compact={Boolean(selectedGid)}
       />
       {error ? (
-        <Alert className="mx-4 mt-3 w-auto" variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+        <Alert
+          className="mx-4 mt-3 flex w-auto items-center gap-3"
+          variant="destructive"
+        >
+          <AlertDescription className="min-w-0 flex-1">
+            {error}
+          </AlertDescription>
+          <Button
+            aria-label="重试"
+            onClick={() => void actions.refresh()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <RefreshCw aria-hidden="true" size={14} />
+            重试
+          </Button>
+          <Button
+            aria-label="关闭错误提示"
+            onClick={actions.clearError}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <X aria-hidden="true" size={15} />
+          </Button>
         </Alert>
       ) : null}
       {tasks.length === 0 ? (
         <EmptyState
+          actionLabel={
+            query.trim() || statusFilter !== "all" ? "清除筛选" : undefined
+          }
           icon={getViewIcon(activeView)}
           isLoading={isLoading}
-          message={getEmptyMessage(activeView)}
-          onAction={activeView === "downloads" ? onAdd : undefined}
-          title={getEmptyTitle(activeView)}
+          message={
+            query.trim() || statusFilter !== "all"
+              ? "请尝试更换关键词或清除当前筛选条件。"
+              : getEmptyMessage(activeView)
+          }
+          onAction={
+            query.trim() || statusFilter !== "all"
+              ? () => {
+                  setQuery("");
+                  setStatusFilter("all");
+                }
+              : activeView === "downloads"
+                ? onAdd
+                : undefined
+          }
+          title={
+            query.trim() || statusFilter !== "all"
+              ? "没有匹配的任务"
+              : getEmptyTitle(activeView)
+          }
         />
       ) : (
         <div
@@ -241,10 +287,7 @@ function WorkspaceHeader({
               }
               value={statusFilter}
             >
-              <SelectTrigger
-                aria-label="筛选下载状态"
-                className="h-8 w-28"
-              >
+              <SelectTrigger aria-label="筛选下载状态" className="h-8 w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end">
@@ -280,18 +323,43 @@ function WorkspaceHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuGroup>
-                <DropdownMenuItem
-                  disabled={count === 0}
-                  onClick={() => void actions.clearAll()}
-                >
-                  全部删除
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void actions.clearCompleted()}>
-                  删除已完成的任务
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void actions.retryFailed()}>
-                  重试失败的下载任务
-                </DropdownMenuItem>
+                {variant === "downloads" ? (
+                  <>
+                    <DropdownMenuItem
+                      disabled={count === 0}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "确定删除全部下载任务吗？已下载的文件不会被删除。",
+                          )
+                        ) {
+                          void actions.clearAll();
+                        }
+                      }}
+                    >
+                      删除全部下载任务
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => void actions.clearCompleted()}
+                    >
+                      删除已完成的任务
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => void actions.retryFailed()}
+                    >
+                      重试失败的下载任务
+                    </DropdownMenuItem>
+                  </>
+                ) : variant === "history" ? (
+                  <DropdownMenuItem
+                    disabled={count === 0}
+                    onClick={() => void actions.clearCompleted()}
+                  >
+                    清空历史记录
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem disabled>暂无批量操作</DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -327,47 +395,61 @@ function TaskListItem({
   return (
     <article
       className={cn(
-        "task-row flex cursor-pointer items-center gap-3 rounded-md border px-3 py-3 transition-colors focus-within:ring-2 focus-within:ring-ring",
+        "task-row flex items-center gap-2 rounded-md border px-2 py-2 transition-colors focus-within:ring-2 focus-within:ring-ring",
         selected
-          ? "border-blue-200 bg-blue-50/75"
-          : "border-transparent bg-white hover:border-blue-100 hover:bg-blue-50/40",
+          ? "border-blue-200 bg-blue-50/75 dark:border-primary/50 dark:bg-primary/15"
+          : "border-transparent bg-white hover:border-blue-100 hover:bg-blue-50/40 dark:bg-card dark:hover:border-primary/30 dark:hover:bg-primary/10",
       )}
-      onClick={() => onSelect(task.gid)}
     >
-      <img
-        alt=""
-        aria-hidden="true"
-        className="size-11 shrink-0 object-contain"
-        draggable={false}
-        src={getTaskFileIconUrl(task)}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h2 className="truncate text-sm font-semibold">{task.name}</h2>
-          <TaskStateBadge state={task.state} />
-        </div>
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{formatBytes(task.completedLength)}</span>
-          {task.totalLength ? (
-            <span>/ {formatBytes(task.totalLength)}</span>
-          ) : null}
-          {view === "history" ? (
-            <span>{formatDate(task.updatedAt)}</span>
-          ) : null}
-        </div>
-        {view === "downloads" || view === "trash" ? (
-          <div className="mt-2 flex items-center gap-3">
-            <Progress
-              className="h-1.5"
-              label={`${task.name} progress`}
-              value={task.progress}
-            />
-            <span className="w-9 text-right text-xs text-muted-foreground">
-              {Math.round(task.progress)}%
-            </span>
+      <button
+        aria-pressed={selected}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-sm p-1 text-left focus-visible:outline-none"
+        onClick={() => onSelect(task.gid)}
+        type="button"
+      >
+        <img
+          alt=""
+          aria-hidden="true"
+          className="size-11 shrink-0 object-contain"
+          draggable={false}
+          src={getTaskFileIconUrl(task)}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-sm font-semibold">{task.name}</h2>
+            <TaskStateBadge state={task.state} />
           </div>
-        ) : null}
-      </div>
+          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{formatBytes(task.completedLength)}</span>
+            {task.totalLength ? (
+              <span>/ {formatBytes(task.totalLength)}</span>
+            ) : null}
+            {view === "history" ? (
+              <span>{formatDate(task.updatedAt)}</span>
+            ) : null}
+            {view === "downloads" || view === "trash" ? (
+              <span
+                className="ml-auto shrink-0 tabular-nums"
+                title={`下载速度：${formatBytes(task.downloadSpeed)}/s`}
+              >
+                ↓ {formatBytes(task.downloadSpeed)}/s
+              </span>
+            ) : null}
+          </div>
+          {view === "downloads" || view === "trash" ? (
+            <div className="mt-2 flex items-center gap-3">
+              <Progress
+                className="h-1.5"
+                label={`${task.name} 下载进度`}
+                value={task.progress}
+              />
+              <span className="w-9 text-right text-xs text-muted-foreground">
+                {Math.round(task.progress)}%
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </button>
       {view === "history" ? (
         <Badge variant="success">已完成</Badge>
       ) : (
@@ -402,7 +484,11 @@ function TaskQuickAction({
     );
   }
 
-  if (task.state === "active" || task.state === "seeding") {
+  if (
+    task.state === "active" ||
+    task.state === "seeding" ||
+    task.state === "queued"
+  ) {
     return (
       <Button
         aria-label="暂停下载"
@@ -420,7 +506,7 @@ function TaskQuickAction({
     );
   }
 
-  if (task.state === "failed") {
+  if (task.state === "failed" || task.state === "removed") {
     return (
       <Button
         aria-label="重试下载"

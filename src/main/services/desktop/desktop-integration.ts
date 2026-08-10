@@ -1,12 +1,7 @@
 import type { DownloadTaskState, TaskSnapshot } from "@shared/types";
-import {
-  app,
-  BrowserWindow,
-  Menu,
-  Notification,
-  Tray,
-} from "electron";
+import { app, BrowserWindow, dialog, Menu, Notification, Tray } from "electron";
 import type { DownloadManager } from "../downloads";
+import type { AppStore } from "../persistence";
 import { createTrayIcon } from "./tray-icon";
 
 export class DesktopIntegration {
@@ -19,6 +14,7 @@ export class DesktopIntegration {
   constructor(
     private readonly getWindow: () => BrowserWindow | null,
     private readonly downloads: DownloadManager,
+    private readonly store: AppStore,
   ) {}
 
   initialize(): void {
@@ -36,7 +32,48 @@ export class DesktopIntegration {
       return;
     }
 
+    const behavior = this.store.getSettings().shutdownBehavior;
+
+    if (behavior === "quit") {
+      this.quit();
+      return;
+    }
+
     event.preventDefault();
+
+    if (behavior === "ask") {
+      const options: Electron.MessageBoxOptions = {
+        type: "question",
+        title: "关闭 Tide X",
+        message: "关闭窗口后要继续在后台下载吗？",
+        detail: "选择后台运行会保留托盘图标；选择退出会停止 Tide X。",
+        buttons: ["后台运行", "退出 Tide X", "取消"],
+        defaultId: 0,
+        cancelId: 2,
+        checkboxLabel: "记住我的选择",
+        noLink: true,
+      };
+      const window = this.getWindow();
+      const result = window
+        ? await dialog.showMessageBox(window, options)
+        : await dialog.showMessageBox(options);
+
+      if (result.response === 2) {
+        return;
+      }
+
+      if (result.checkboxChecked) {
+        await this.store.updateSettings({
+          shutdownBehavior: result.response === 0 ? "minimize-to-tray" : "quit",
+        });
+      }
+
+      if (result.response === 1) {
+        this.quit();
+        return;
+      }
+    }
+
     this.hideToTray();
     this.showBackgroundNotice();
   }
@@ -151,7 +188,7 @@ export class DesktopIntegration {
 
     new Notification({
       title: "Tide X",
-      body: "应用在后台运行，请手动退出",
+      body: "已最小化到托盘，下载任务会继续运行。",
     }).show();
   }
 
@@ -204,7 +241,6 @@ export class DesktopIntegration {
       this.updateTaskbarProgress();
     }
   }
-
 }
 
 function shouldNotify(state: DownloadTaskState): boolean {

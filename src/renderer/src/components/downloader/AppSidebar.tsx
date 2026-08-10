@@ -65,8 +65,8 @@ export function AppSidebar({
                 "h-10 justify-start gap-3 border border-transparent px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring",
                 collapsed && "justify-center px-0",
                 selected
-                  ? "border-blue-100 bg-white text-primary shadow-sm hover:bg-white hover:text-primary"
-                  : "text-foreground/80 hover:bg-white/70 hover:text-primary",
+                  ? "border-blue-100 bg-white text-primary shadow-sm hover:bg-white hover:text-primary dark:border-primary/40 dark:bg-card dark:hover:bg-card"
+                  : "text-foreground/80 hover:bg-white/70 hover:text-primary dark:hover:bg-card/80",
               )}
               key={item.id}
               onClick={() => onViewChange(item.id)}

@@ -31,7 +31,13 @@ export async function parseDownloadInput(
     throw new Error("请输入下载任务来源。");
   }
 
-  const options = createTaskOptions(input, settings);
+  const fileName = normalizeDownloadFileName(input.fileName);
+
+  if (fileName && !isHttpUrl(source)) {
+    throw new Error("自定义文件名仅适用于 HTTP/HTTPS 单文件下载。");
+  }
+
+  const options = createTaskOptions(input, settings, fileName);
   await mkdir(options.dir, { recursive: true });
 
   if (isHttpUrl(source) || isMagnetLink(source)) {
@@ -74,11 +80,16 @@ export async function parseDownloadInput(
 function createTaskOptions(
   input: AddDownloadInput,
   settings: AppSettings,
+  fileName: string | null,
 ): Record<string, string> {
   const options: Record<string, string> = {
     dir: input.directory?.trim() || settings.downloadDirectory,
     "max-connection-per-server": String(settings.connectionsPerTask),
   };
+
+  if (fileName) {
+    options.out = fileName;
+  }
 
   if (settings.globalDownloadLimit !== null) {
     options["max-download-limit"] = String(settings.globalDownloadLimit);
@@ -101,6 +112,25 @@ function createTaskOptions(
   }
 
   return options;
+}
+
+function normalizeDownloadFileName(value: string | undefined): string | null {
+  const fileName = value?.trim();
+
+  if (!fileName) {
+    return null;
+  }
+
+  if (
+    fileName === "." ||
+    fileName === ".." ||
+    /[<>:"/\\|?*\u0000-\u001f]/u.test(fileName) ||
+    /[. ]$/u.test(fileName)
+  ) {
+    throw new Error("文件名包含无效字符，或以空格、句点结尾。");
+  }
+
+  return fileName;
 }
 
 function addHttpCompatibilityOptions(

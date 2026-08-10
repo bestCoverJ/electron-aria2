@@ -17,28 +17,30 @@ export function StatusBar({
   snapshot: TaskSnapshot;
 }) {
   return (
-    <footer className="status-glass grid h-14 shrink-0 grid-cols-[minmax(190px,0.9fr)_220px_minmax(180px,1fr)_226px] max-[900px]:grid-cols-[1fr_180px_210px]">
+    <footer className="status-glass grid h-14 shrink-0 grid-cols-[minmax(190px,0.9fr)_220px_minmax(180px,1fr)_226px] max-[900px]:grid-cols-[minmax(140px,1fr)_112px_minmax(112px,0.75fr)_158px]">
       <StatusBlock
         label="总进度"
         value={`${formatBytes(getCompletedBytes(snapshot.tasks))} / ${formatBytes(
           getTotalBytes(snapshot.tasks),
         )}`}
       />
-      <div className="flex items-center gap-3 border-l px-4">
+      <div className="flex items-center gap-3 border-l px-4 max-[900px]:gap-2 max-[900px]:px-3">
         <span className="w-10 text-xs text-muted-foreground">
           {Math.round(progress)}%
         </span>
         <Progress className="h-1.5" label="总下载进度" value={progress} />
       </div>
-      <div className="flex items-center gap-4 border-l px-4 max-[900px]:hidden">
+      <div className="flex items-center gap-4 border-l px-4 max-[900px]:px-3">
         <StatusBlock
           compact
           label="速度"
           value={`${formatBytes(snapshot.summary.downloadSpeed)}/s`}
         />
-        <SpeedWaveform totalSpeed={snapshot.summary.downloadSpeed} />
+        <div className="min-w-0 flex-1 max-[900px]:hidden">
+          <SpeedWaveform totalSpeed={snapshot.summary.downloadSpeed} />
+        </div>
       </div>
-      <div className="flex items-center border-l px-4">
+      <div className="flex items-center border-l px-4 max-[900px]:px-3">
         <EngineLine
           label={getEngineStatusLabel(snapshot.runtime.availability)}
           runtime={snapshot.runtime}
@@ -121,7 +123,13 @@ function StatusBlock({
   value: string;
 }) {
   return (
-    <div className={cn("flex flex-col justify-center px-4", compact && "px-0")}>
+    <div
+      className={cn(
+        "flex min-w-0 flex-col justify-center px-4 max-[900px]:px-3",
+        compact && "px-0 max-[900px]:px-0",
+      )}
+      title={`${label}：${value}`}
+    >
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="mt-0.5 truncate text-xs font-medium">{value}</span>
     </div>

@@ -60,16 +60,20 @@ export function normalizeRecentDirectories(
 
 async function validateDownloadDirectory(path: string): Promise<void> {
   if (!path.trim()) {
-    throw new Error("Download directory is required.");
+    throw new Error("请选择或输入默认保存目录。");
   }
 
-  await mkdir(path, { recursive: true });
-  await access(path, constants.W_OK);
+  try {
+    await mkdir(path, { recursive: true });
+    await access(path, constants.W_OK);
+  } catch {
+    throw new Error("保存目录不可用，请检查路径是否正确并确认有写入权限。");
+  }
 }
 
 function validatePositiveInteger(value: number, field: string): void {
   if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${field} must be a positive integer.`);
+    throw new Error(`${getSettingLabel(field)}必须是大于 0 的整数。`);
   }
 }
 
@@ -79,7 +83,7 @@ function validateOptionalLimit(value: number | null, field: string): void {
   }
 
   if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${field} must be null or a non-negative integer.`);
+    throw new Error(`${getSettingLabel(field)}必须是大于或等于 0 的整数。`);
   }
 }
 
@@ -88,27 +92,48 @@ function validateProxy(value: string | null): void {
     return;
   }
 
-  const url = new URL(value);
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("请输入完整代理地址，例如 http://127.0.0.1:8080。");
+  }
 
   if (!["http:", "https:", "socks4:", "socks5:"].includes(url.protocol)) {
-    throw new Error("Proxy URL must use http, https, socks4, or socks5.");
+    throw new Error("代理地址仅支持 http、https、socks4 或 socks5 协议。");
   }
 }
 
 function validateAdvancedOptions(options: Record<string, string>): void {
   for (const [key, value] of Object.entries(options)) {
     if (!allowedAdvancedOption.test(key)) {
-      throw new Error(`Invalid aria2 option name: ${key}.`);
+      throw new Error(`aria2 选项名称“${key}”格式不正确。`);
     }
 
     if (isReservedRuntimeOption(key)) {
-      throw new Error(`aria2 option ${key} is managed by Tide X.`);
+      throw new Error(`aria2 选项“${key}”由 Tide X 管理，不能手动修改。`);
+    }
+
+    if (typeof value !== "string") {
+      throw new Error(`aria2 选项“${key}”的值必须是字符串。`);
     }
 
     if (value.includes("\n") || value.includes("\r")) {
-      throw new Error(`Invalid aria2 option value for ${key}.`);
+      throw new Error(`aria2 选项“${key}”的值不能包含换行。`);
     }
   }
+}
+
+function getSettingLabel(field: string): string {
+  const labels: Record<string, string> = {
+    maxConcurrentDownloads: "最大并发下载数",
+    connectionsPerTask: "单任务最大连接数",
+    globalDownloadLimit: "全局下载限速",
+    globalUploadLimit: "全局上传限速",
+  };
+
+  return labels[field] ?? "设置值";
 }
 
 function isReservedRuntimeOption(key: string): boolean {

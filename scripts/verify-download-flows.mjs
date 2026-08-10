@@ -43,6 +43,22 @@ try {
   ]);
   await waitForStatus(runtime, completeGid, "complete", 7000);
 
+  const customFileName = "customer-named-download.bin";
+  const renamedGid = await rpc(runtime, "aria2.addUri", [
+    [`${httpServer.url}/complete.bin`],
+    {
+      out: customFileName,
+      "max-tries": "1",
+      "retry-wait": "0",
+    },
+  ]);
+  await waitForStatus(runtime, renamedGid, "complete", 7000);
+  const renamedStat = await stat(join(workspace, customFileName));
+
+  if (renamedStat.size === 0) {
+    throw new Error("Custom file name download is empty.");
+  }
+
   const pauseGid = await rpc(runtime, "aria2.addUri", [
     [`${httpServer.url}/slow.bin`],
     { "max-tries": "1", "retry-wait": "0" },
@@ -90,7 +106,7 @@ try {
   await verifySettingsPersistenceContract();
 
   console.log(
-    "download flow verification passed: add, pause, resume, remove, complete, fail, restart recovery",
+    "download flow verification passed: add, custom file name, pause, resume, remove, complete, fail, restart recovery",
   );
 } finally {
   if (runtime) {

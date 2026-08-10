@@ -93,6 +93,7 @@ export interface TaskSnapshot {
 export interface AddDownloadInput {
   source: string;
   directory?: string;
+  fileName?: string;
 }
 
 export interface RemoveDownloadOptions {
@@ -104,6 +105,11 @@ export interface SelectDirectoryOptions {
 }
 
 export interface SelectDirectoryResult {
+  canceled: boolean;
+  path: string | null;
+}
+
+export interface SelectTaskFileResult {
   canceled: boolean;
   path: string | null;
 }
@@ -124,6 +130,7 @@ export interface TideApi {
     getStatus(): Promise<RuntimeStatus>;
   };
   downloads: {
+    selectTaskFile(): Promise<SelectTaskFileResult>;
     add(input: AddDownloadInput): Promise<{ gid: string }>;
     pause(gid: string): Promise<void>;
     resume(gid: string): Promise<void>;

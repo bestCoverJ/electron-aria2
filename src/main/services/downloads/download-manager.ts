@@ -27,7 +27,7 @@ export class DownloadManager {
     this.store.upsertTaskMetadata({
       gid,
       source: parsed.source,
-      displayName: null,
+      displayName: input.fileName?.trim() || null,
       directory: parsed.options.dir ?? null,
       userNote: null,
       removeFilesOnDelete: false,
@@ -71,21 +71,29 @@ export class DownloadManager {
   ): Promise<void> {
     const client = this.runtime.getClient();
     const task = await this.findTask(gid);
+    const isActiveTask =
+      task?.status === "active" ||
+      task?.status === "waiting" ||
+      task?.status === "paused";
 
-    try {
-      await client.remove(gid);
-    } catch {
+    if (isActiveTask) {
       try {
-        await client.forceRemove(gid);
+        await client.remove(gid);
       } catch {
-        // Stopped results are cleared through removeDownloadResult below.
+        try {
+          await client.forceRemove(gid);
+        } catch {
+          throw new Error("任务删除失败，请稍后重试。");
+        }
       }
     }
 
     try {
       await client.removeDownloadResult(gid);
     } catch {
-      // aria2 only keeps completed/error results in the result list.
+      if (!isActiveTask && task) {
+        throw new Error("任务记录删除失败，请稍后重试。");
+      }
     }
 
     const metadata = this.store.getTaskMetadata(gid);
@@ -100,11 +108,17 @@ export class DownloadManager {
     }
 
     if (removeFiles && task?.files) {
-      await Promise.all(
-        task.files
-          .filter((file) => file.path)
-          .map((file) => rm(file.path, { force: true, recursive: false })),
-      );
+      try {
+        await Promise.all(
+          task.files
+            .filter((file) => file.path)
+            .map((file) => rm(file.path, { force: true, recursive: false })),
+        );
+      } catch {
+        throw new Error(
+          "任务已移除，但部分文件无法删除，请检查文件是否正被其他程序占用。",
+        );
+      }
     }
   }
 
@@ -121,6 +135,7 @@ export class DownloadManager {
       {
         source: metadata.source,
         directory: metadata.directory ?? undefined,
+        fileName: metadata.displayName ?? undefined,
       },
       this.store.getSettings(),
     );
@@ -160,29 +175,44 @@ export class DownloadManager {
   async clearAll(): Promise<void> {
     const tasks = await this.getRawTasks();
 
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       tasks.map((task) => this.remove(task.gid, { removeFiles: false })),
     );
 
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        this.store.removeTaskMetadata(tasks[index].gid);
+      }
+    });
+
+    const taskGids = new Set(tasks.map((task) => task.gid));
     for (const metadata of this.store.listTaskMetadata()) {
-      this.store.removeTaskMetadata(metadata.gid);
+      if (!taskGids.has(metadata.gid)) {
+        this.store.removeTaskMetadata(metadata.gid);
+      }
     }
+
+    throwIfBatchFailed(results, "删除", "任务");
   }
 
   async clearCompleted(): Promise<void> {
     const tasks = await this.getRawTasks();
     const completed = tasks.filter((task) => task.status === "complete");
 
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       completed.map((task) => this.remove(task.gid, { removeFiles: false })),
     );
+    throwIfBatchFailed(results, "删除", "已完成任务");
   }
 
   async retryFailed(): Promise<void> {
     const tasks = await this.getRawTasks();
     const failed = tasks.filter((task) => task.status === "error");
 
-    await Promise.allSettled(failed.map((task) => this.retry(task.gid)));
+    const results = await Promise.allSettled(
+      failed.map((task) => this.retry(task.gid)),
+    );
+    throwIfBatchFailed(results, "重试", "失败任务");
   }
 
   async revealFile(gid: string): Promise<void> {
@@ -260,8 +290,8 @@ export class DownloadManager {
       const status = describeAria2Status(task);
       const progress = getProgressPercent(task);
       const progressCheckpoint = Math.floor(progress / 5) * 5;
-      const completedLength = parseByteCount(task.completedLength);
       const totalLength = parseByteCount(task.totalLength);
+      const completedLength = parseByteCount(task.completedLength);
       const downloadSpeed = parseByteCount(task.downloadSpeed);
 
       if (!checkpoint || checkpoint.status !== task.status) {
@@ -285,10 +315,7 @@ export class DownloadManager {
         );
       }
 
-      if (
-        progressCheckpoint !== checkpoint?.progressCheckpoint ||
-        completedLength !== checkpoint.completedLength
-      ) {
+      if (!checkpoint || progressCheckpoint !== checkpoint.progressCheckpoint) {
         this.store.appendTaskLog(
           task.gid,
           `下载进度 ${Math.round(progress)}%（${formatBytes(
@@ -300,7 +327,6 @@ export class DownloadManager {
       }
 
       this.observedTasks.set(task.gid, {
-        completedLength,
         errorMessage: task.errorMessage ?? null,
         progressCheckpoint,
         status: task.status,
@@ -310,10 +336,23 @@ export class DownloadManager {
 }
 
 interface TaskLogCheckpoint {
-  completedLength: number;
   errorMessage: string | null;
   progressCheckpoint: number;
   status: Aria2Task["status"];
+}
+
+function throwIfBatchFailed(
+  results: PromiseSettledResult<unknown>[],
+  action: string,
+  target: string,
+): void {
+  const failedCount = results.filter(
+    (result) => result.status === "rejected",
+  ).length;
+
+  if (failedCount > 0) {
+    throw new Error(`有 ${failedCount} 个${target}${action}失败，请稍后重试。`);
+  }
 }
 
 function describeAria2Status(task: Aria2Task): string {

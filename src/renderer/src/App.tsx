@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AddDownloadDialog } from "@/components/downloader/AddDownloadDialog";
 import { AppSidebar } from "@/components/downloader/AppSidebar";
 import { CompactMode } from "@/components/downloader/CompactMode";
@@ -36,6 +36,21 @@ export function App(): ReactElement {
     ? (snapshot.tasks.find((task) => task.gid === selectedGid) ?? null)
     : null;
   const overallProgress = calculateOverallProgress(snapshot);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      const useDarkTheme =
+        settings?.theme === "dark" ||
+        (settings?.theme === "system" && media.matches);
+      document.documentElement.classList.toggle("dark", useDarkTheme);
+    };
+
+    applyTheme();
+    media.addEventListener("change", applyTheme);
+
+    return () => media.removeEventListener("change", applyTheme);
+  }, [settings?.theme]);
 
   if (isCompactMode) {
     return (
@@ -121,12 +136,9 @@ export function App(): ReactElement {
           recentDirectories={settings?.recentDownloadDirectories ?? []}
           onClose={() => setIsAddOpen(false)}
           onSelectDirectory={actions.selectDirectory}
-          onSubmit={async (source, directory) => {
+          onSelectTaskFile={actions.selectTaskFile}
+          onSubmit={async (source, directory, fileName) => {
             const nextDirectory = directory.trim();
-            await actions.add({
-              source,
-              directory: nextDirectory || undefined,
-            });
             if (nextDirectory) {
               await actions.updateSettings({
                 downloadDirectory: nextDirectory,
@@ -136,6 +148,11 @@ export function App(): ReactElement {
                 ],
               });
             }
+            await actions.add({
+              source,
+              directory: nextDirectory || undefined,
+              fileName: fileName || undefined,
+            });
             setIsAddOpen(false);
           }}
         />

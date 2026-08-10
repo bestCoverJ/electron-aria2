@@ -1,4 +1,8 @@
-import type { AppSettings, ThemePreference } from "@shared/types";
+import type {
+  AppSettings,
+  ShutdownBehavior,
+  ThemePreference,
+} from "@shared/types";
 import { SlidersHorizontal } from "lucide-react";
 import type { FormEvent, ReactElement } from "react";
 import { useState } from "react";
@@ -14,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useDownloads } from "@/hooks/use-downloads";
 import { normalizeUserError } from "@/lib/tide-api";
@@ -33,18 +36,30 @@ export function SettingsWorkspace({
   );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      const advancedAria2Options = JSON.parse(advancedText) as Record<
-        string,
-        string
-      >;
+      let advancedAria2Options: Record<string, string>;
+
+      try {
+        const parsed = JSON.parse(advancedText) as unknown;
+
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new TypeError();
+        }
+
+        advancedAria2Options = parsed as Record<string, string>;
+      } catch {
+        throw new Error("高级 aria2 选项必须是有效的 JSON 对象，例如 {}。");
+      }
       await actions.updateSettings({ ...draft, advancedAria2Options });
+      setSuccess("设置已保存并应用。");
     } catch (caught) {
       setError(normalizeUserError(caught));
     } finally {
@@ -64,12 +79,10 @@ export function SettingsWorkspace({
               <span className="text-xs font-medium">下载引擎</span>
               <Input readOnly value="aria2" />
             </label>
-            <NumberField
-              label="监听端口"
-              min={1}
-              onChange={() => undefined}
-              value={6800}
-            />
+            <label className="grid gap-2">
+              <span className="text-xs font-medium">本地监听端口</span>
+              <Input disabled value="6800（由 Tide X 管理）" />
+            </label>
             <NumberField
               label="单任务最大连接数"
               min={1}
@@ -80,12 +93,6 @@ export function SettingsWorkspace({
             />
           </SettingsGroup>
 
-          <SettingsGroup title="启动">
-            <SwitchRow label="开机启动" value={false} />
-            <SwitchRow label="启动时最小化" value />
-            <SwitchRow label="显示托盘图标" value />
-          </SettingsGroup>
-
           <SettingsGroup title="默认保存目录">
             <DirectoryField
               label="保存目录"
@@ -93,6 +100,7 @@ export function SettingsWorkspace({
               onChange={(downloadDirectory) =>
                 setDraft({ ...draft, downloadDirectory })
               }
+              onError={(message) => setError(message)}
               recentDirectories={draft.recentDownloadDirectories}
               value={draft.downloadDirectory}
             />
@@ -119,7 +127,37 @@ export function SettingsWorkspace({
                 </SelectContent>
               </Select>
             </div>
-            <SwitchRow label="浅色界面" value={draft.theme !== "dark"} />
+          </SettingsGroup>
+
+          <SettingsGroup title="关闭行为">
+            <div className="grid gap-2">
+              <span className="text-xs font-medium">关闭主窗口时</span>
+              <Select
+                onValueChange={(shutdownBehavior) =>
+                  setDraft({
+                    ...draft,
+                    shutdownBehavior: shutdownBehavior as ShutdownBehavior,
+                  })
+                }
+                value={draft.shutdownBehavior}
+              >
+                <SelectTrigger aria-label="关闭主窗口时">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="ask">每次询问</SelectItem>
+                    <SelectItem value="minimize-to-tray">
+                      最小化到托盘
+                    </SelectItem>
+                    <SelectItem value="quit">直接退出 Tide X</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <p className="text-xs leading-5 text-muted-foreground">
+                后台运行时下载任务会继续，仍可从系统托盘打开 Tide X。
+              </p>
+            </div>
           </SettingsGroup>
 
           <SettingsGroup title="并发下载">
@@ -144,29 +182,49 @@ export function SettingsWorkspace({
                 value={draft.proxyUrl ?? ""}
               />
             </label>
-            <NumberField
-              label="代理端口"
-              min={0}
-              onChange={() => undefined}
-              value={8080}
-            />
+            <p className="text-xs leading-5 text-muted-foreground">
+              请输入完整地址并包含端口，例如 http://127.0.0.1:8080。
+            </p>
           </SettingsGroup>
 
           <SettingsGroup title="速度限制">
             <OptionalNumberField
-              label="全局下载限速"
+              label="全局下载限速（KB/s）"
               onChange={(globalDownloadLimit) =>
-                setDraft({ ...draft, globalDownloadLimit })
+                setDraft({
+                  ...draft,
+                  globalDownloadLimit:
+                    globalDownloadLimit === null
+                      ? null
+                      : globalDownloadLimit * 1024,
+                })
               }
-              value={draft.globalDownloadLimit}
+              value={
+                draft.globalDownloadLimit === null
+                  ? null
+                  : Math.round(draft.globalDownloadLimit / 1024)
+              }
             />
             <OptionalNumberField
-              label="全局上传限速"
+              label="全局上传限速（KB/s）"
               onChange={(globalUploadLimit) =>
-                setDraft({ ...draft, globalUploadLimit })
+                setDraft({
+                  ...draft,
+                  globalUploadLimit:
+                    globalUploadLimit === null
+                      ? null
+                      : globalUploadLimit * 1024,
+                })
               }
-              value={draft.globalUploadLimit}
+              value={
+                draft.globalUploadLimit === null
+                  ? null
+                  : Math.round(draft.globalUploadLimit / 1024)
+              }
             />
+            <p className="text-xs leading-5 text-muted-foreground">
+              留空表示不限速，修改后立即应用到下载引擎。
+            </p>
           </SettingsGroup>
 
           <SettingsGroup title="高级">
@@ -186,12 +244,17 @@ export function SettingsWorkspace({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
+        {success ? (
+          <Alert className="mt-4" role="status">
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        ) : null}
       </div>
 
       <div className="flex h-16 shrink-0 items-center justify-end border-t bg-card/80 px-5 backdrop-blur-xl">
         <Button disabled={isSaving} type="submit">
           <SlidersHorizontal aria-hidden="true" size={14} />
-          保存设置
+          {isSaving ? "正在保存…" : "保存设置"}
         </Button>
       </div>
     </form>
@@ -212,14 +275,5 @@ function SettingsGroup({
       </CardHeader>
       <CardContent className="space-y-3">{children}</CardContent>
     </Card>
-  );
-}
-
-function SwitchRow({ label, value }: { label: string; value: boolean }) {
-  return (
-    <div className="flex h-9 items-center justify-between gap-3">
-      <span className="text-xs font-medium">{label}</span>
-      <Switch checked={value} />
-    </div>
   );
 }

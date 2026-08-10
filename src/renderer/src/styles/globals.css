@@ -105,6 +105,16 @@
     -webkit-app-region: drag;
   }
 
+  .dark .compact-surface {
+    background:
+      linear-gradient(
+        135deg,
+        hsl(var(--secondary) / 0.94),
+        hsl(var(--background) / 0.96)
+      ),
+      hsl(var(--background));
+  }
+
   .glass-panel {
     background-color: hsl(var(--card));
   }
@@ -120,9 +130,13 @@
     border-radius: var(--radius);
     border-width: 1px;
 
-    &+.workspace-surface {
+    & + .workspace-surface {
       margin-left: 8px;
     }
+  }
+
+  .dark .workspace-surface {
+    background: hsl(var(--background) / 0.9);
   }
 
   .status-glass {

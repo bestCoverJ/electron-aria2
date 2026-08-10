@@ -5,6 +5,38 @@ const app = await readFile("src/renderer/src/App.tsx", "utf8");
 const css = await readFile("src/renderer/src/styles/globals.css", "utf8");
 const designSystem = await readFile("design-system/MASTER.md", "utf8");
 const mainSource = await readFile("src/main/index.ts", "utf8");
+const desktopIntegrationSource = await readFile(
+  "src/main/services/desktop/desktop-integration.ts",
+  "utf8",
+);
+const ipcSource = await readFile("src/shared/ipc.ts", "utf8");
+const ipcRegisterSource = await readFile("src/main/ipc/register.ts", "utf8");
+const preloadSource = await readFile("src/preload/index.ts", "utf8");
+const downloadsHookSource = await readFile(
+  "src/renderer/src/hooks/use-downloads.ts",
+  "utf8",
+);
+const downloadManagerSource = await readFile(
+  "src/main/services/downloads/download-manager.ts",
+  "utf8",
+);
+const taskInputSource = await readFile(
+  "src/main/services/downloads/task-input.ts",
+  "utf8",
+);
+const statusBarSource = await readFile(
+  "src/renderer/src/components/downloader/StatusBar.tsx",
+  "utf8",
+);
+const detailsSource = await readFile(
+  "src/renderer/src/components/downloader/DetailsPanel.tsx",
+  "utf8",
+);
+const aboutSource = await readFile(
+  "src/renderer/src/components/downloader/AboutWorkspace.tsx",
+  "utf8",
+);
+const lockfileSource = await readFile("pnpm-lock.yaml", "utf8");
 const downloaderDir = "src/renderer/src/components/downloader";
 const downloaderFiles = await readdir(downloaderDir);
 const downloaderSource = (
@@ -58,6 +90,105 @@ const checks = [
       css.includes("--ring"),
   },
   {
+    name: "Task selection is keyboard accessible",
+    pass:
+      uiSource.includes("aria-pressed={selected}") &&
+      uiSource.includes("onClick={() => onSelect(task.gid)}") &&
+      uiSource.includes('type="button"'),
+  },
+  {
+    name: "Empty filters provide a direct recovery action",
+    pass:
+      uiSource.includes('actionLabel="清除筛选"') ||
+      (uiSource.includes('"清除筛选"') &&
+        uiSource.includes('setStatusFilter("all")')),
+  },
+  {
+    name: "Theme preference is applied to the renderer",
+    pass:
+      app.includes('matchMedia("(prefers-color-scheme: dark)")') &&
+      app.includes('classList.toggle("dark"'),
+  },
+  {
+    name: "Theme preference is synchronized with native dialogs",
+    pass:
+      mainSource.includes("nativeTheme.themeSource") &&
+      ipcRegisterSource.includes("nativeTheme.themeSource = settings.theme"),
+  },
+  {
+    name: "Action errors expose retry and dismissal",
+    pass:
+      uiSource.includes('aria-label="重试"') &&
+      uiSource.includes('aria-label="关闭错误提示"') &&
+      uiSource.includes("actions.clearError"),
+  },
+  {
+    name: "Polling does not erase actionable operation errors",
+    pass:
+      downloadsHookSource.includes("void refresh(false)") &&
+      downloadsHookSource.includes("clearErrorOnSuccess = true"),
+  },
+  {
+    name: "New-download retry cannot duplicate an already-created task",
+    pass:
+      app.indexOf("await actions.updateSettings") <
+      app.indexOf("await actions.add"),
+  },
+  {
+    name: "Destructive bulk removal requires confirmation",
+    pass:
+      uiSource.includes("window.confirm") &&
+      uiSource.includes("确定删除全部下载任务吗"),
+  },
+  {
+    name: "Single-task removal defaults to preserving downloaded files",
+    pass:
+      uiSource.includes("同时删除已下载文件") &&
+      uiSource.includes("默认仅从 Tide X 中移除任务") &&
+      uiSource.includes("删除任务和文件") &&
+      uiSource.includes("remove(task.gid, removeFiles)"),
+  },
+  {
+    name: "Task state maps to pause resume and retry actions",
+    pass:
+      uiSource.includes('task.state === "queued"') &&
+      uiSource.includes("actions.pause(task.gid)") &&
+      uiSource.includes("actions.resume(task.gid)") &&
+      uiSource.includes("actions.retry(task.gid)"),
+  },
+  {
+    name: "Batch failures are reported instead of silently discarded",
+    pass:
+      downloadManagerSource.includes("throwIfBatchFailed") &&
+      downloadManagerSource.includes("个${target}${action}失败"),
+  },
+  {
+    name: "Transfer logs are persisted only at progress checkpoints",
+    pass:
+      downloadManagerSource.includes(
+        "progressCheckpoint !== checkpoint.progressCheckpoint",
+      ) &&
+      !downloadManagerSource.includes(
+        "completedLength !== checkpoint.completedLength",
+      ),
+  },
+  {
+    name: "Task log uses a virtualized viewport",
+    pass:
+      detailsSource.includes("VirtualLogList") &&
+      detailsSource.includes("startIndex") &&
+      detailsSource.includes("endIndex") &&
+      detailsSource.includes("ResizeObserver") &&
+      detailsSource.includes("lines.slice(startIndex, endIndex)"),
+  },
+  {
+    name: "Compact detail metrics expose full values through tooltips",
+    pass:
+      uiSource.includes("title={`${label}：${value}`}") &&
+      uiSource.includes("text-[11px]") &&
+      uiSource.includes("min-[1040px]:text-sm"),
+  },
+  {
     name: "No horizontal overflow on the app shell",
     pass:
       app.includes("overflow-hidden") &&
@@ -90,12 +221,42 @@ const checks = [
       designSystem.includes("recent directory"),
   },
   {
+    name: "Torrent and Metalink files have a native picker workflow",
+    pass:
+      uiSource.includes("选择任务文件") &&
+      uiSource.includes("onSelectTaskFile") &&
+      ipcSource.includes("downloadsSelectTaskFile") &&
+      preloadSource.includes("downloadsSelectTaskFile") &&
+      ipcRegisterSource.includes(
+        'extensions: ["torrent", "metalink", "meta4"]',
+      ),
+  },
+  {
+    name: "HTTP downloads support a validated custom file name",
+    pass:
+      uiSource.includes("保存文件名（可选）") &&
+      app.includes("fileName: fileName || undefined") &&
+      taskInputSource.includes("options.out = fileName") &&
+      taskInputSource.includes("自定义文件名仅适用于 HTTP/HTTPS") &&
+      downloadManagerSource.includes("displayName: input.fileName?.trim()"),
+  },
+  {
     name: "Settings are rendered as a first-class screen",
     pass:
       uiSource.includes("SettingsWorkspace") &&
       uiSource.includes("下载引擎") &&
       uiSource.includes("默认保存目录") &&
-      uiSource.includes("速度限制"),
+      uiSource.includes("速度限制") &&
+      uiSource.includes("关闭行为"),
+  },
+  {
+    name: "Window close behavior follows the user setting",
+    pass:
+      uiSource.includes('value="minimize-to-tray"') &&
+      uiSource.includes('value="quit"') &&
+      desktopIntegrationSource.includes("shutdownBehavior") &&
+      desktopIntegrationSource.includes("dialog.showMessageBox") &&
+      desktopIntegrationSource.includes("记住我的选择"),
   },
   {
     name: "Detail panel exposes transfer tabs",
@@ -120,8 +281,39 @@ const checks = [
       uiSource.includes("totalSpeed <= 0"),
   },
   {
+    name: "760px status bar and task rows retain download speed",
+    pass:
+      statusBarSource.includes("max-[900px]:grid-cols") &&
+      statusBarSource.includes("snapshot.summary.downloadSpeed") &&
+      uiSource.includes("下载速度：${formatBytes(task.downloadSpeed)}/s") &&
+      !statusBarSource.includes(
+        'className="flex items-center gap-4 border-l px-4 max-[900px]:hidden"',
+      ),
+  },
+  {
     name: "Electron preload points to the built MJS bundle",
     pass: mainSource.includes('../preload/index.mjs"'),
+  },
+  {
+    name: "Developer tools do not open for customers by default",
+    pass:
+      mainSource.includes('process.env.TIDE_X_OPEN_DEVTOOLS === "1"') &&
+      !mainSource.includes("\n  mainWindow.webContents.openDevTools();"),
+  },
+  {
+    name: "First-run window uses the requested 760 by 520 size",
+    pass:
+      mainSource.includes("{ width: 760, height: 520 }") &&
+      mainSource.includes("minHeight: isCompact ? 200 : 520"),
+  },
+  {
+    name: "About page shows current dependency versions without stale notice",
+    pass:
+      aboutSource.includes("当前依赖版本") &&
+      aboutSource.includes('version: "1.37.0"') &&
+      aboutSource.includes('version: "33.4.11"') &&
+      lockfileSource.includes("version: 33.4.11") &&
+      !aboutSource.includes("aria2 的原始许可、作者和变更记录"),
   },
   {
     name: "Download API errors are normalized",

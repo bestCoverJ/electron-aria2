@@ -25,6 +25,8 @@ const tideApi: TideApi = {
     getStatus: () => ipcRenderer.invoke(ipcChannels.runtimeGetStatus),
   },
   downloads: {
+    selectTaskFile: () =>
+      ipcRenderer.invoke(ipcChannels.downloadsSelectTaskFile),
     add: (input: AddDownloadInput) =>
       ipcRenderer.invoke(ipcChannels.downloadsAdd, input),
     pause: (gid: string) => ipcRenderer.invoke(ipcChannels.downloadsPause, gid),

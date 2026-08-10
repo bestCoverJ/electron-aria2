@@ -1,4 +1,4 @@
-import { app, BrowserWindow, type Rectangle } from "electron";
+import { app, BrowserWindow, nativeTheme, type Rectangle } from "electron";
 import { join } from "node:path";
 import { registerIpcHandlers } from "./ipc/register";
 import { Aria2Runtime } from "./services/aria2";
@@ -30,7 +30,7 @@ function createMainWindow(
   const isCompact = mode === "compact";
   const bounds = isCompact
     ? { width: 420, height: 240 }
-    : (lastFullBounds ?? { width: 760, height: 480 });
+    : (lastFullBounds ?? { width: 760, height: 520 });
 
   mainWindow = new BrowserWindow({
     width: bounds.width,
@@ -38,7 +38,7 @@ function createMainWindow(
     x: "x" in bounds ? bounds.x : undefined,
     y: "y" in bounds ? bounds.y : undefined,
     minWidth: isCompact ? 360 : 760,
-    minHeight: isCompact ? 200 : 480,
+    minHeight: isCompact ? 200 : 520,
     title: "Tide X",
     icon: getAppIconPath(),
     autoHideMenuBar: true,
@@ -59,7 +59,9 @@ function createMainWindow(
     },
   });
 
-  mainWindow.webContents.openDevTools();
+  if (process.env.TIDE_X_OPEN_DEVTOOLS === "1") {
+    mainWindow.webContents.openDevTools({ mode: "detach" });
+  }
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
@@ -149,6 +151,7 @@ function exitCompactMode(): void {
 
 app.whenReady().then(async () => {
   const appStore = new AppStore();
+  nativeTheme.themeSource = appStore.getSettings().theme;
   const downloads = new DownloadManager(aria2Runtime, appStore);
   registerIpcHandlers(aria2Runtime, appStore, downloads, {
     enterCompactMode,
@@ -158,6 +161,7 @@ app.whenReady().then(async () => {
   desktopIntegration = new DesktopIntegration(
     () => mainWindow,
     downloads,
+    appStore,
   );
   desktopIntegration.initialize();
   createMainWindow();

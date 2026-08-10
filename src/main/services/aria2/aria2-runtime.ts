@@ -29,7 +29,7 @@ export class Aria2Runtime {
 
   private status: RuntimeStatus = {
     availability: "starting",
-    message: "aria2 runtime is starting.",
+    message: "正在启动下载引擎。",
     pid: null,
     rpcPort: null,
     startedAt: null,
@@ -49,7 +49,7 @@ export class Aria2Runtime {
 
   getClient(): Aria2RpcClient {
     if (!this.client || this.status.availability !== "ready") {
-      throw new Error("aria2 runtime is not available.");
+      throw new Error("下载引擎暂不可用，请稍后重试。");
     }
 
     return this.client;
@@ -99,7 +99,7 @@ export class Aria2Runtime {
 
     this.status = {
       availability: "starting",
-      message: "Starting bundled aria2c runtime.",
+      message: "正在启动内置下载引擎。",
       pid: null,
       rpcPort,
       startedAt: null,

@@ -6,6 +6,7 @@ export const ipcChannels = {
   settingsSelectDirectory: "settings:select-directory",
   runtimeGetStatus: "runtime:get-status",
   downloadsAdd: "downloads:add",
+  downloadsSelectTaskFile: "downloads:select-task-file",
   downloadsPause: "downloads:pause",
   downloadsResume: "downloads:resume",
   downloadsRemove: "downloads:remove",
