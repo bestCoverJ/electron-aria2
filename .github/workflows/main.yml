@@ -38,7 +38,7 @@ jobs:
       #   uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: pnpm install --network-timeout 100000
+        run: pnpm install --fetch-timeout 100000
         shell: bash
 
       # 👇 临时诊断：确认 electron 二进制是否下载成功
