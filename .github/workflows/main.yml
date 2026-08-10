@@ -59,3 +59,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tide-x-${{ matrix.os }}
+          path: |
+            dist-electron/*.dmg
+            dist-electron/*.exe
+            dist-electron/*.blockmap
+            dist-electron/*.AppImage
+            dist-electron/*.tar.gz
+            dist-electron/*.zip
+          if-no-files-found: ignore
