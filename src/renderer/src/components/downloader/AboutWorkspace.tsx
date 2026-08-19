@@ -65,8 +65,12 @@ export function AboutWorkspace(): ReactElement {
           <div className="min-w-0">
             <h2 className="text-lg font-semibold">Tide X</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              基于 aria2
-              的桌面下载管理器，支持多协议任务、队列管理、托盘驻留和完成提醒。
+              基于 aria2 的桌面下载管理器，支持
+              HTTP/HTTPS、FTP/SFTP、Magnet、torrent、 Metalink 及经典
+              Thunder/FlashGet/QQDL 链接。
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              暂不支持 ed2k、thunderx、迅雷云盘或需要账号服务的分享链接。
             </p>
             <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
               <span className="rounded-md border bg-background px-2.5 py-1">

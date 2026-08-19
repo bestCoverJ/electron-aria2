@@ -77,6 +77,30 @@ try {
   ]);
   await waitForStatus(runtime, failGid, "error", 8000);
 
+  const descriptorGid = await rpc(runtime, "aria2.addUri", [
+    [`${httpServer.url}/remote.meta4`],
+    {
+      "follow-metalink": "mem",
+      "follow-torrent": "mem",
+      "max-tries": "1",
+      "retry-wait": "0",
+    },
+  ]);
+  const descriptorTask = await waitForFollowedTask(
+    runtime,
+    descriptorGid,
+    8000,
+  );
+  const followedGid = descriptorTask.followedBy[0];
+  await waitForStatus(runtime, followedGid, "complete", 8000);
+  const followedStat = await stat(join(workspace, "followed.bin"));
+
+  if (followedStat.size === 0) {
+    throw new Error("Remote Metalink followed download is empty.");
+  }
+
+  await assertMissing(join(workspace, "remote.meta4"));
+
   const recoveryGid = await rpc(runtime, "aria2.addUri", [
     [`${httpServer.url}/recovery.bin`],
     { "max-tries": "1", "retry-wait": "0" },
@@ -106,7 +130,7 @@ try {
   await verifySettingsPersistenceContract();
 
   console.log(
-    "download flow verification passed: add, custom file name, pause, resume, remove, complete, fail, restart recovery",
+    "download flow verification passed: add, custom file name, pause, resume, remove, complete, fail, remote Metalink follow, restart recovery",
   );
 } finally {
   if (runtime) {
@@ -186,6 +210,22 @@ async function startFixtureServer() {
       response.writeHead(200, {
         "content-length": body.length,
         "content-type": "application/octet-stream",
+      });
+      response.end(body);
+      return;
+    }
+
+    if (request.url === "/remote.meta4") {
+      const body = `<?xml version="1.0" encoding="UTF-8"?>
+<metalink xmlns="urn:ietf:params:xml:ns:metalink">
+  <file name="followed.bin">
+    <size>${64 * 1024}</size>
+    <url>http://127.0.0.1:${port}/complete.bin</url>
+  </file>
+</metalink>`;
+      response.writeHead(200, {
+        "content-length": Buffer.byteLength(body),
+        "content-type": "application/metalink4+xml",
       });
       response.end(body);
       return;
@@ -278,6 +318,22 @@ async function waitForStatus(runtime, gid, expectedStatus, timeoutMs) {
   throw new Error(
     `Expected ${gid} to become ${expectedStatus}, got ${lastStatus}.`,
   );
+}
+
+async function waitForFollowedTask(runtime, gid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const task = await findTask(runtime, gid);
+
+    if (task?.followedBy?.length) {
+      return task;
+    }
+
+    await delay(120);
+  }
+
+  throw new Error(`Expected ${gid} to expose followedBy child tasks.`);
 }
 
 async function findTask(runtime, gid) {
@@ -376,6 +432,16 @@ async function removeWithRetry(path) {
   console.warn(
     `Unable to remove temporary directory ${path}: ${lastError?.message}`,
   );
+}
+
+async function assertMissing(path) {
+  try {
+    await access(path);
+  } catch {
+    return;
+  }
+
+  throw new Error(`Expected in-memory descriptor to stay absent: ${path}`);
 }
 
 async function verifySettingsPersistenceContract() {

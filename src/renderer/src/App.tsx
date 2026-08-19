@@ -136,8 +136,8 @@ export function App(): ReactElement {
           recentDirectories={settings?.recentDownloadDirectories ?? []}
           onClose={() => setIsAddOpen(false)}
           onSelectDirectory={actions.selectDirectory}
-          onSelectTaskFile={actions.selectTaskFile}
-          onSubmit={async (source, directory, fileName) => {
+          onSelectTaskFiles={actions.selectTaskFiles}
+          onSubmit={async ({ directory, fileName, sources }) => {
             const nextDirectory = directory.trim();
             if (nextDirectory) {
               await actions.updateSettings({
@@ -148,12 +148,25 @@ export function App(): ReactElement {
                 ],
               });
             }
-            await actions.add({
-              source,
+            if (sources.length === 1 && fileName) {
+              await actions.add({
+                source: sources[0],
+                directory: nextDirectory || undefined,
+                fileName,
+              });
+
+              return {
+                items: [{ source: sources[0], status: "created" as const }],
+                createdCount: 1,
+                failedCount: 0,
+                skippedCount: 0,
+              };
+            }
+
+            return actions.addBatch({
+              sources,
               directory: nextDirectory || undefined,
-              fileName: fileName || undefined,
             });
-            setIsAddOpen(false);
           }}
         />
       ) : null}

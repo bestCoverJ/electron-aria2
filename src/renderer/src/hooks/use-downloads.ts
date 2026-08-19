@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
+  AddDownloadBatchInput,
+  AddDownloadBatchResult,
   AddDownloadInput,
   AppSettings,
   SelectDirectoryOptions,
@@ -90,6 +92,21 @@ export function useDownloads() {
           await refresh();
         }, true);
       },
+      addBatch: async (
+        input: AddDownloadBatchInput,
+      ): Promise<AddDownloadBatchResult> => {
+        const result = await runAction(async () => {
+          const nextResult = await getTideApi().downloads.addBatch(input);
+          await refresh();
+          return nextResult;
+        }, true);
+
+        if (!result) {
+          throw new Error("批量创建下载任务失败，请稍后重试。");
+        }
+
+        return result;
+      },
       pause: async (gid: string) => {
         await runAction(async () => {
           await getTideApi().downloads.pause(gid);
@@ -148,6 +165,17 @@ export function useDownloads() {
         }
 
         return selectTaskFile();
+      },
+      selectTaskFiles: () => {
+        const selectTaskFiles = getTideApi().downloads.selectTaskFiles;
+
+        if (!selectTaskFiles) {
+          throw new Error(
+            "多文件选择服务暂不可用，请确认正在 Tide X 桌面窗口中运行。",
+          );
+        }
+
+        return selectTaskFiles();
       },
       selectDirectory: (
         options?: SelectDirectoryOptions,

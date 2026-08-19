@@ -24,6 +24,10 @@ const taskInputSource = await readFile(
   "src/main/services/downloads/task-input.ts",
   "utf8",
 );
+const sourceNormalizationSource = await readFile(
+  "src/main/services/downloads/source-normalization.ts",
+  "utf8",
+);
 const statusBarSource = await readFile(
   "src/renderer/src/components/downloader/StatusBar.tsx",
   "utf8",
@@ -221,24 +225,78 @@ const checks = [
       designSystem.includes("recent directory"),
   },
   {
-    name: "Torrent and Metalink files have a native picker workflow",
+    name: "Torrent and Metalink files have a multi-select native picker workflow",
     pass:
-      uiSource.includes("选择任务文件") &&
-      uiSource.includes("onSelectTaskFile") &&
-      ipcSource.includes("downloadsSelectTaskFile") &&
-      preloadSource.includes("downloadsSelectTaskFile") &&
+      uiSource.includes("选择文件") &&
+      uiSource.includes("onSelectTaskFiles") &&
+      ipcSource.includes("downloadsSelectTaskFiles") &&
+      preloadSource.includes("downloadsSelectTaskFiles") &&
+      ipcRegisterSource.includes('"multiSelections"') &&
       ipcRegisterSource.includes(
         'extensions: ["torrent", "metalink", "meta4"]',
       ),
   },
   {
-    name: "HTTP downloads support a validated custom file name",
+    name: "Single direct downloads support a validated custom file name",
     pass:
-      uiSource.includes("保存文件名（可选）") &&
-      app.includes("fileName: fileName || undefined") &&
+      uiSource.includes("保存文件名") &&
+      uiSource.includes("仅单条直链可用") &&
+      app.includes("if (sources.length === 1 && fileName)") &&
+      app.includes("fileName,") &&
       taskInputSource.includes("options.out = fileName") &&
-      taskInputSource.includes("自定义文件名仅适用于 HTTP/HTTPS") &&
+      taskInputSource.includes(
+        "自定义文件名仅适用于单条普通 HTTP/HTTPS/FTP/SFTP",
+      ) &&
       downloadManagerSource.includes("displayName: input.fileName?.trim()"),
+  },
+  {
+    name: "Mixed download sources use ordered batch IPC with per-item feedback",
+    pass:
+      ipcSource.includes("downloadsAddBatch") &&
+      preloadSource.includes("addBatch") &&
+      downloadsHookSource.includes("downloads.addBatch") &&
+      app.includes("actions.addBatch") &&
+      downloadManagerSource.includes("prepareDownloadBatch(input.sources)") &&
+      uiSource.includes("failedItems") &&
+      uiSource.includes("成功项已从输入框移除"),
+  },
+  {
+    name: "Source field documents protocols and enforces the 100-item UI limit",
+    pass:
+      uiSource.includes("粘贴链接，每行一条") &&
+      uiSource.includes("Thunder/FlashGet/QQDL") &&
+      uiSource.includes("{sourceCount}/100") &&
+      uiSource.includes("sources.length > 100") &&
+      aboutSource.includes("暂不支持 ed2k、thunderx、迅雷云盘"),
+  },
+  {
+    name: "Compact add dialog removes redundant help and fits the 760px layout",
+    pass:
+      uiSource.includes('panelClassName="p-4 [&>div:first-child]:mb-3"') &&
+      uiSource.includes('className="flex flex-col gap-3"') &&
+      uiSource.includes("h-24 min-h-24 max-h-32 resize-none") &&
+      uiSource.includes("批量或任务文件将自动使用原始文件名") &&
+      !uiSource.includes("已识别 {sources.length} 条非空来源") &&
+      !uiSource.includes("留空时使用服务器提供的文件名。"),
+  },
+  {
+    name: "Add dialog dims the workspace without backdrop blur",
+    pass:
+      uiSource.includes("blurBackdrop={false}") &&
+      uiSource.includes('blurBackdrop && "backdrop-blur-sm"') &&
+      uiSource.includes("bg-slate-950/35") &&
+      !uiSource.includes(
+        'className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm"',
+      ),
+  },
+  {
+    name: "Remote descriptors follow in memory and displayed credentials are redacted",
+    pass:
+      taskInputSource.includes('options["follow-torrent"] = "mem"') &&
+      taskInputSource.includes('options["follow-metalink"] = "mem"') &&
+      sourceNormalizationSource.includes('url.username = ""') &&
+      sourceNormalizationSource.includes('url.password = ""') &&
+      downloadManagerSource.includes("planFollowedTaskMigrations"),
   },
   {
     name: "Settings are rendered as a first-class screen",

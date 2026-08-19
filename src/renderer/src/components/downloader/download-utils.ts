@@ -125,7 +125,7 @@ export function getEmptyTitle(view: MainView): string {
 
 export function getEmptyMessage(view: MainView): string {
   const messages: Record<MainView, string> = {
-    downloads: "添加 URL、Magnet、torrent 或 Metalink 任务开始下载。",
+    downloads: "添加直链、Magnet、torrent、Metalink 或经典下载器链接开始下载。",
     history: "完成的下载任务会显示在这里。",
     trash: "删除的任务会显示在这里。",
     settings: "设置仍在加载。",

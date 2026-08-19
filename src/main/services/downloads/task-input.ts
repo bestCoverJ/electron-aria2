@@ -1,91 +1,82 @@
-import type { AddDownloadInput, AppSettings } from "@shared/types";
+import type {
+  AddDownloadInput,
+  AppSettings,
+  DownloadSourceKind,
+} from "@shared/types";
 import { mkdir, readFile } from "node:fs/promises";
-import { extname, isAbsolute } from "node:path";
+import type { NormalizedDownloadSource } from "./source-normalization";
+import { normalizeDownloadSource } from "./source-normalization";
+
+interface ParsedDownloadBase {
+  source: string;
+  originalSource: string;
+  displaySource: string;
+  canonicalKey: string;
+  sourceKind: DownloadSourceKind;
+  options: Record<string, string>;
+}
 
 export type ParsedDownloadInput =
-  | {
-      kind: "uri";
-      source: string;
-      options: Record<string, string>;
-    }
-  | {
-      kind: "torrent";
-      source: string;
-      contentBase64: string;
-      options: Record<string, string>;
-    }
-  | {
-      kind: "metalink";
-      source: string;
-      contentBase64: string;
-      options: Record<string, string>;
-    };
+  | (ParsedDownloadBase & { kind: "uri" })
+  | (ParsedDownloadBase & { kind: "torrent"; contentBase64: string })
+  | (ParsedDownloadBase & { kind: "metalink"; contentBase64: string });
 
 export async function parseDownloadInput(
   input: AddDownloadInput,
   settings: AppSettings,
 ): Promise<ParsedDownloadInput> {
-  const source = input.source.trim();
-
-  if (!source) {
-    throw new Error("请输入下载任务来源。");
-  }
-
+  const normalized = normalizeDownloadSource(input.source);
   const fileName = normalizeDownloadFileName(input.fileName);
 
-  if (fileName && !isHttpUrl(source)) {
-    throw new Error("自定义文件名仅适用于 HTTP/HTTPS 单文件下载。");
+  if (fileName && !normalized.canRename) {
+    throw new Error(
+      "自定义文件名仅适用于单条普通 HTTP/HTTPS/FTP/SFTP 文件链接。",
+    );
   }
 
-  const options = createTaskOptions(input, settings, fileName);
+  const options = createTaskOptions(input, settings, fileName, normalized);
   await mkdir(options.dir, { recursive: true });
+  const base: ParsedDownloadBase = {
+    source: normalized.transportSource,
+    originalSource: normalized.originalSource,
+    displaySource: normalized.displaySource,
+    canonicalKey: normalized.canonicalKey,
+    sourceKind: normalized.kind,
+    options,
+  };
 
-  if (isHttpUrl(source) || isMagnetLink(source)) {
-    return {
-      kind: "uri",
-      source,
-      options: isHttpUrl(source)
-        ? addHttpCompatibilityOptions(source, options)
-        : options,
-    };
+  if (!normalized.localPath) {
+    return { ...base, kind: "uri" };
   }
 
-  if (isAbsolute(source)) {
-    const extension = extname(source).toLowerCase();
-
-    if (extension === ".torrent") {
-      return {
+  return normalized.kind === "torrent"
+    ? {
+        ...base,
         kind: "torrent",
-        source,
-        contentBase64: await readFileAsBase64(source),
-        options,
-      };
-    }
-
-    if (extension === ".metalink" || extension === ".meta4") {
-      return {
+        contentBase64: await readFileAsBase64(normalized.localPath),
+      }
+    : {
+        ...base,
         kind: "metalink",
-        source,
-        contentBase64: await readFileAsBase64(source),
-        options,
+        contentBase64: await readFileAsBase64(normalized.localPath),
       };
-    }
-  }
-
-  throw new Error(
-    "不支持的下载任务来源。请使用 HTTP/HTTPS、Magnet、torrent 或 Metalink。",
-  );
 }
 
 function createTaskOptions(
   input: AddDownloadInput,
   settings: AppSettings,
   fileName: string | null,
+  source: NormalizedDownloadSource,
 ): Record<string, string> {
   const options: Record<string, string> = {
     dir: input.directory?.trim() || settings.downloadDirectory,
     "max-connection-per-server": String(settings.connectionsPerTask),
   };
+
+  if (!source.localPath && source.kind !== "magnet") {
+    options["follow-torrent"] = "mem";
+    options["follow-metalink"] = "mem";
+  }
 
   if (fileName) {
     options.out = fileName;
@@ -104,14 +95,14 @@ function createTaskOptions(
   }
 
   for (const [key, value] of Object.entries(settings.advancedAria2Options)) {
-    if (isReservedRuntimeOption(key)) {
-      continue;
+    if (!isReservedRuntimeOption(key)) {
+      options[key] = value;
     }
-
-    options[key] = value;
   }
 
-  return options;
+  return source.kind === "http"
+    ? addHttpCompatibilityOptions(source.transportSource, options)
+    : options;
 }
 
 function normalizeDownloadFileName(value: string | undefined): string | null {
@@ -143,25 +134,12 @@ function addHttpCompatibilityOptions(
     referer: options.referer ?? `${url.origin}/`,
     "user-agent":
       options["user-agent"] ??
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 TideX/0.1.0",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 TideX/0.1.1",
   };
 }
 
 function isReservedRuntimeOption(key: string): boolean {
   return key === "enable-rpc" || key.startsWith("rpc-");
-}
-
-function isHttpUrl(source: string): boolean {
-  try {
-    const url = new URL(source);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function isMagnetLink(source: string): boolean {
-  return source.toLowerCase().startsWith("magnet:?");
 }
 
 async function readFileAsBase64(path: string): Promise<string> {

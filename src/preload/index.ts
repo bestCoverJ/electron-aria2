@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { ipcChannels } from "@shared/ipc";
 import type {
+  AddDownloadBatchInput,
   AddDownloadInput,
   AppSettings,
   SelectDirectoryOptions,
@@ -27,8 +28,12 @@ const tideApi: TideApi = {
   downloads: {
     selectTaskFile: () =>
       ipcRenderer.invoke(ipcChannels.downloadsSelectTaskFile),
+    selectTaskFiles: () =>
+      ipcRenderer.invoke(ipcChannels.downloadsSelectTaskFiles),
     add: (input: AddDownloadInput) =>
       ipcRenderer.invoke(ipcChannels.downloadsAdd, input),
+    addBatch: (input: AddDownloadBatchInput) =>
+      ipcRenderer.invoke(ipcChannels.downloadsAddBatch, input),
     pause: (gid: string) => ipcRenderer.invoke(ipcChannels.downloadsPause, gid),
     resume: (gid: string) =>
       ipcRenderer.invoke(ipcChannels.downloadsResume, gid),

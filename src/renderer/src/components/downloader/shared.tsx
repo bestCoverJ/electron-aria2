@@ -239,14 +239,18 @@ export function EmptyState({
 }
 
 export function Modal({
+  blurBackdrop = true,
   children,
   closeDisabled = false,
   onClose,
+  panelClassName,
   title,
 }: {
+  blurBackdrop?: boolean;
   children: ReactElement;
   closeDisabled?: boolean;
   onClose: () => void;
+  panelClassName?: string;
   title: string;
 }) {
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -266,7 +270,10 @@ export function Modal({
     <div
       aria-labelledby="modal-title"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm"
+      className={cn(
+        "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4",
+        blurBackdrop && "backdrop-blur-sm",
+      )}
       onMouseDown={(event) => {
         if (event.target === backdropRef.current && !closeDisabled) {
           onClose();
@@ -275,7 +282,12 @@ export function Modal({
       ref={backdropRef}
       role="dialog"
     >
-      <section className="w-full max-w-xl rounded-lg border bg-popover p-5 text-popover-foreground shadow-xl">
+      <section
+        className={cn(
+          "max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-auto rounded-lg border bg-popover p-5 text-popover-foreground shadow-xl",
+          panelClassName,
+        )}
+      >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold" id="modal-title">
             {title}
@@ -377,23 +389,25 @@ export function SourceField({
   error,
   onChange,
   onError,
-  onSelectFile,
+  onSelectFiles,
+  sourceCount,
   value,
 }: {
   error: string | null;
   onChange: (value: string) => void;
   onError: (message: string | null) => void;
-  onSelectFile: ReturnType<typeof useDownloads>["actions"]["selectTaskFile"];
+  onSelectFiles: ReturnType<typeof useDownloads>["actions"]["selectTaskFiles"];
+  sourceCount: number;
   value: string;
 }) {
   async function handleSelectFile() {
     onError(null);
 
     try {
-      const result = await onSelectFile();
+      const result = await onSelectFiles();
 
-      if (!result.canceled && result.path) {
-        onChange(result.path);
+      if (!result.canceled && result.paths.length > 0) {
+        onChange([value.trim(), ...result.paths].filter(Boolean).join("\n"));
       }
     } catch (caught) {
       onError(normalizeUserError(caught));
@@ -401,20 +415,25 @@ export function SourceField({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-3">
-        <label className="text-sm font-medium" htmlFor="download-source">
-          任务来源
-        </label>
+        <div className="flex items-baseline gap-2">
+          <label className="text-sm font-medium" htmlFor="download-source">
+            任务来源
+          </label>
+          <span className="text-xs text-muted-foreground">
+            {sourceCount}/100
+          </span>
+        </div>
         <Button
-          aria-label="选择 torrent 或 Metalink 文件"
+          aria-label="选择一个或多个 torrent 或 Metalink 文件"
           onClick={() => void handleSelectFile()}
           size="sm"
           type="button"
           variant="outline"
         >
           <FileUp aria-hidden="true" size={14} />
-          选择任务文件
+          选择文件
         </Button>
       </div>
       <Textarea
@@ -425,16 +444,19 @@ export function SourceField({
         }
         aria-invalid={Boolean(error)}
         autoFocus
+        className="h-24 min-h-24 max-h-32 resize-none"
         id="download-source"
         onChange={(event) => onChange(event.target.value)}
-        placeholder="https://example.com/file.zip 或 magnet:?xt=..."
+        placeholder={
+          "粘贴链接，每行一条\nhttps://example.com/file.zip 或 magnet:?xt=..."
+        }
         value={value}
       />
       <span
         className="text-xs leading-5 text-muted-foreground"
         id="download-source-help"
       >
-        粘贴 HTTP/HTTPS 或 Magnet 链接，也可以选择本地 torrent、Metalink 文件。
+        支持直链、Magnet、Thunder/FlashGet/QQDL 及 torrent/Metalink。
       </span>
     </div>
   );

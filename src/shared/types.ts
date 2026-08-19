@@ -4,6 +4,16 @@ export type ShutdownBehavior = "ask" | "minimize-to-tray" | "quit";
 
 export type RuntimeAvailability = "starting" | "ready" | "unavailable";
 
+export type DownloadSourceKind =
+  | "http"
+  | "ftp"
+  | "magnet"
+  | "torrent"
+  | "metalink"
+  | "thunder"
+  | "flashget"
+  | "qqdl";
+
 export type DownloadTaskState =
   | "queued"
   | "active"
@@ -96,6 +106,27 @@ export interface AddDownloadInput {
   fileName?: string;
 }
 
+export interface AddDownloadBatchInput {
+  sources: string[];
+  directory?: string;
+}
+
+export type AddDownloadBatchItemStatus = "created" | "failed" | "skipped";
+
+export interface AddDownloadBatchItemResult {
+  source: string;
+  status: AddDownloadBatchItemStatus;
+  gid?: string;
+  error?: string;
+}
+
+export interface AddDownloadBatchResult {
+  items: AddDownloadBatchItemResult[];
+  createdCount: number;
+  failedCount: number;
+  skippedCount: number;
+}
+
 export interface RemoveDownloadOptions {
   removeFiles?: boolean;
 }
@@ -112,6 +143,11 @@ export interface SelectDirectoryResult {
 export interface SelectTaskFileResult {
   canceled: boolean;
   path: string | null;
+}
+
+export interface SelectTaskFilesResult {
+  canceled: boolean;
+  paths: string[];
 }
 
 export interface TideApi {
@@ -131,7 +167,9 @@ export interface TideApi {
   };
   downloads: {
     selectTaskFile(): Promise<SelectTaskFileResult>;
+    selectTaskFiles(): Promise<SelectTaskFilesResult>;
     add(input: AddDownloadInput): Promise<{ gid: string }>;
+    addBatch(input: AddDownloadBatchInput): Promise<AddDownloadBatchResult>;
     pause(gid: string): Promise<void>;
     resume(gid: string): Promise<void>;
     remove(gid: string, options?: RemoveDownloadOptions): Promise<void>;

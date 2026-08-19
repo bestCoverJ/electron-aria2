@@ -1,4 +1,7 @@
 import type {
+  AddDownloadBatchInput,
+  AddDownloadBatchItemResult,
+  AddDownloadBatchResult,
   AddDownloadInput,
   RemoveDownloadOptions,
   TaskSnapshot,
@@ -9,6 +12,14 @@ import { dirname } from "node:path";
 import type { Aria2Runtime } from "../aria2";
 import type { AppStore } from "../persistence";
 import type { Aria2Task } from "./aria2-types";
+import {
+  type FollowedTaskMigration,
+  planFollowedTaskMigrations,
+} from "./followed-task-planning";
+import {
+  normalizeDownloadSource,
+  prepareDownloadBatch,
+} from "./source-normalization";
 import { parseDownloadInput } from "./task-input";
 import { createTaskSnapshot } from "./task-projection";
 
@@ -26,15 +37,53 @@ export class DownloadManager {
 
     this.store.upsertTaskMetadata({
       gid,
-      source: parsed.source,
+      source: parsed.originalSource,
       displayName: input.fileName?.trim() || null,
       directory: parsed.options.dir ?? null,
       userNote: null,
       removeFilesOnDelete: false,
     });
-    this.store.appendTaskLog(gid, `任务已创建：${parsed.source}`);
+    this.store.appendTaskLog(gid, `任务已创建：${parsed.displaySource}`);
 
     return { gid };
+  }
+
+  async addBatch(
+    input: AddDownloadBatchInput,
+  ): Promise<AddDownloadBatchResult> {
+    const items: AddDownloadBatchItemResult[] = [];
+
+    for (const prepared of prepareDownloadBatch(input.sources)) {
+      if (prepared.status !== "ready") {
+        items.push(prepared);
+        continue;
+      }
+
+      try {
+        const result = await this.add({
+          source: prepared.source,
+          directory: input.directory,
+        });
+        items.push({
+          source: prepared.source,
+          status: "created",
+          gid: result.gid,
+        });
+      } catch (caught) {
+        items.push({
+          source: prepared.source,
+          status: "failed",
+          error: getErrorMessage(caught),
+        });
+      }
+    }
+
+    return {
+      items,
+      createdCount: items.filter((item) => item.status === "created").length,
+      failedCount: items.filter((item) => item.status === "failed").length,
+      skippedCount: items.filter((item) => item.status === "skipped").length,
+    };
   }
 
   async pause(gid: string): Promise<void> {
@@ -253,13 +302,47 @@ export class DownloadManager {
       client.tellStopped<Aria2Task>(),
     ]);
     const tasks = [...active, ...waiting, ...stopped];
-    this.observeTaskLogs(tasks);
+    const { migrations, visibleTasks } = planFollowedTaskMigrations(tasks);
+    this.migrateFollowedTaskMetadata(migrations);
+    this.observeTaskLogs(visibleTasks);
 
     return createTaskSnapshot(
-      tasks,
+      visibleTasks,
       this.store.listTaskMetadata(),
       this.runtime.getStatus(),
     );
+  }
+
+  private migrateFollowedTaskMetadata(
+    migrations: FollowedTaskMigration[],
+  ): void {
+    for (const migration of migrations) {
+      const parentMetadata = this.store.getTaskMetadata(migration.parentGid);
+
+      if (!parentMetadata) {
+        continue;
+      }
+
+      for (const childGid of migration.childGids) {
+        if (this.store.getTaskMetadata(childGid)) {
+          continue;
+        }
+
+        this.store.upsertTaskMetadata({
+          ...parentMetadata,
+          gid: childGid,
+          displayName: null,
+          logLines: parentMetadata.logLines,
+        });
+        this.store.appendTaskLog(
+          childGid,
+          `已跟随远程描述文件，来源：${getSafeDisplaySource(parentMetadata.source)}`,
+        );
+      }
+
+      this.store.removeTaskMetadata(migration.parentGid);
+      this.observedTasks.delete(migration.parentGid);
+    }
   }
 
   private async findTask(gid: string): Promise<Aria2Task | null> {
@@ -409,5 +492,21 @@ async function assertPathAccessible(path: string): Promise<void> {
     await access(path);
   } catch {
     throw new Error(`路径不可访问：${path}`);
+  }
+}
+
+function getErrorMessage(caught: unknown): string {
+  if (caught instanceof Error && caught.message) {
+    return caught.message;
+  }
+
+  return "创建下载任务失败，请稍后重试。";
+}
+
+function getSafeDisplaySource(source: string): string {
+  try {
+    return normalizeDownloadSource(source).displaySource;
+  } catch {
+    return "已保存的下载来源";
   }
 }

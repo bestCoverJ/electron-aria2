@@ -26,6 +26,9 @@ export interface Aria2Task {
   dir?: string;
   files?: Aria2File[];
   bittorrent?: unknown;
+  followedBy?: string[];
+  following?: string;
+  belongsTo?: string;
   errorCode?: string;
   errorMessage?: string;
 }

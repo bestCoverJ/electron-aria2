@@ -1,6 +1,6 @@
 {
   "name": "tide-x",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cross-platform aria2 download manager",
   "private": true,
   "packageManager": "pnpm@10.18.3",
@@ -16,6 +16,7 @@
     "lint": "eslint . --max-warnings=0",
     "verify:aria2": "node scripts/verify-aria2-runtime.mjs",
     "verify:downloads": "node scripts/verify-download-flows.mjs",
+    "verify:sources": "node --experimental-strip-types scripts/verify-download-sources.mjs",
     "verify:ui": "node scripts/verify-ui-contracts.mjs",
     "website:dev": "pnpm --dir website run dev",
     "website:build": "pnpm --dir website run build",

@@ -7,6 +7,10 @@ import type {
   TransferSummary,
 } from "@shared/types";
 import type { Aria2File, Aria2Task } from "./aria2-types";
+import {
+  normalizeDownloadSource,
+  redactDownloadSource,
+} from "./source-normalization";
 
 export function createTaskSnapshot(
   rawTasks: Aria2Task[],
@@ -55,7 +59,7 @@ function projectTask(
 
   return {
     gid: task.gid,
-    source: metadata?.source ?? task.gid,
+    source: metadata ? getSafeSource(metadata.source) : task.gid,
     directory: metadata?.directory ?? null,
     name: metadata?.displayName ?? inferTaskName(task, metadata),
     state: projectTaskState(task),
@@ -158,10 +162,18 @@ function inferTaskName(
   }
 
   if (metadata?.source) {
-    return metadata.source;
+    return getSafeSource(metadata.source);
   }
 
   return task.gid;
+}
+
+function getSafeSource(source: string): string {
+  try {
+    return normalizeDownloadSource(source).displaySource;
+  } catch {
+    return redactDownloadSource(source);
+  }
 }
 
 function parseByteCount(value: string | undefined): number {
