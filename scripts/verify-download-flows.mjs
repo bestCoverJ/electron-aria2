@@ -161,7 +161,36 @@ async function verifyHistoryPersistenceContract() {
     [projectionSource, "restorePersistedTask"],
     [projectionSource, "metadata.persistedTask"],
     [projectionSource, 'line.includes("下载完成。")'],
+    [projectionSource, "repairPersistedFileInformation"],
+    [projectionSource, "statSync(file.path).size"],
+    [managerSource, "deleteHistoryRecord(gid"],
+    [managerSource, 'createHash("sha256")'],
+    [managerSource, "createReadStream(path)"],
+    [managerSource, 'sha256Status: "calculating"'],
+    [managerSource, 'null, "unavailable"'],
   ];
+
+  const desktopSource = await readFile(
+    "src/main/services/desktop/desktop-integration.ts",
+    "utf8",
+  );
+  const notificationSnippets = [
+    "restoreNotifiedTasks()",
+    "getNotificationKey(metadata)",
+    "notificationGeneration",
+  ];
+
+  for (const snippet of notificationSnippets) {
+    if (!desktopSource.includes(snippet)) {
+      throw new Error(
+        `Notification persistence contract is missing: ${snippet}`,
+      );
+    }
+  }
+
+  if (!managerSource.includes("metadata.notificationGeneration + 1")) {
+    throw new Error("Retry must advance the notification generation.");
+  }
 
   for (const [source, snippet] of requiredSnippets) {
     if (!source.includes(snippet)) {

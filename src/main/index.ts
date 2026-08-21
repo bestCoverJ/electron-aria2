@@ -1,4 +1,10 @@
-import { app, BrowserWindow, nativeTheme, type Rectangle } from "electron";
+import {
+  app,
+  BrowserWindow,
+  nativeTheme,
+  screen,
+  type Rectangle,
+} from "electron";
 import { join } from "node:path";
 import { registerIpcHandlers } from "./ipc/register";
 import { Aria2Runtime } from "./services/aria2";
@@ -16,10 +22,12 @@ let mainWindow: BrowserWindow | null = null;
 const aria2Runtime = new Aria2Runtime();
 const applicationUpdater = new ApplicationUpdater();
 let desktopIntegration: DesktopIntegration | null = null;
+let appStore: AppStore | null = null;
 let isRecreatingWindow = false;
 let isQuitFinalized = false;
 let currentWindowMode: "full" | "compact" = "full";
 let lastFullBounds: Rectangle | null = null;
+let windowBoundsSaveTimer: NodeJS.Timeout | null = null;
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 
@@ -32,9 +40,10 @@ function createMainWindow(
 ): BrowserWindow {
   currentWindowMode = mode;
   const isCompact = mode === "compact";
+  const restoredBounds = !isCompact ? getRestoredFullBounds() : null;
   const bounds = isCompact
     ? { width: 420, height: 240 }
-    : (lastFullBounds ?? { width: 760, height: 520 });
+    : (lastFullBounds ?? restoredBounds ?? { width: 760, height: 520 });
 
   mainWindow = new BrowserWindow({
     width: bounds.width,
@@ -68,6 +77,9 @@ function createMainWindow(
   }
 
   mainWindow.once("ready-to-show", () => {
+    if (!isCompact && appStore?.getSettings().windowBounds.maximized) {
+      mainWindow?.maximize();
+    }
     mainWindow?.show();
   });
 
@@ -81,6 +93,13 @@ function createMainWindow(
     void desktopIntegration?.handleWindowClose(event);
   });
 
+  if (!isCompact) {
+    mainWindow.on("move", scheduleWindowBoundsSave);
+    mainWindow.on("resize", scheduleWindowBoundsSave);
+    mainWindow.on("maximize", scheduleWindowBoundsSave);
+    mainWindow.on("unmaximize", scheduleWindowBoundsSave);
+  }
+
   if (process.env.ELECTRON_RENDERER_URL) {
     const suffix = isCompact ? "#compact" : "";
     mainWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}${suffix}`);
@@ -91,6 +110,60 @@ function createMainWindow(
   }
 
   return mainWindow;
+}
+
+function getRestoredFullBounds(): Rectangle | null {
+  const preference = appStore?.getSettings().windowBounds;
+
+  if (!preference) return null;
+
+  const proposed = {
+    x: preference.x ?? 0,
+    y: preference.y ?? 0,
+    width: preference.width,
+    height: preference.height,
+  };
+  const workArea = screen.getDisplayMatching(proposed).workArea;
+  const width = Math.min(Math.max(760, proposed.width), workArea.width);
+  const height = Math.min(Math.max(520, proposed.height), workArea.height);
+
+  return {
+    width,
+    height,
+    x:
+      preference.x === null
+        ? workArea.x + Math.round((workArea.width - width) / 2)
+        : Math.min(
+            Math.max(preference.x, workArea.x),
+            workArea.x + workArea.width - width,
+          ),
+    y:
+      preference.y === null
+        ? workArea.y + Math.round((workArea.height - height) / 2)
+        : Math.min(
+            Math.max(preference.y, workArea.y),
+            workArea.y + workArea.height - height,
+          ),
+  };
+}
+
+function scheduleWindowBoundsSave(): void {
+  if (!mainWindow || currentWindowMode !== "full") return;
+
+  if (windowBoundsSaveTimer) clearTimeout(windowBoundsSaveTimer);
+  windowBoundsSaveTimer = setTimeout(() => {
+    persistWindowBounds();
+  }, 250);
+}
+
+function persistWindowBounds(): void {
+  if (!mainWindow || currentWindowMode !== "full") return;
+  const bounds = mainWindow.getNormalBounds();
+  lastFullBounds = bounds;
+  appStore?.updateWindowBounds({
+    ...bounds,
+    maximized: mainWindow.isMaximized(),
+  });
 }
 
 function applyWindowBackdrop(window: BrowserWindow): void {
@@ -154,7 +227,7 @@ function exitCompactMode(): void {
 }
 
 app.whenReady().then(async () => {
-  const appStore = new AppStore();
+  appStore = new AppStore();
   nativeTheme.themeSource = appStore.getSettings().theme;
   const downloads = new DownloadManager(aria2Runtime, appStore);
   registerIpcHandlers(aria2Runtime, appStore, downloads, applicationUpdater, {
@@ -199,6 +272,8 @@ app.on("before-quit", (event) => {
   }
 
   event.preventDefault();
+  persistWindowBounds();
+  if (windowBoundsSaveTimer) clearTimeout(windowBoundsSaveTimer);
   applicationUpdater.dispose();
   desktopIntegration?.beginQuit();
   void aria2Runtime.shutdown().finally(() => {

@@ -40,6 +40,10 @@ const aboutSource = await readFile(
   "src/renderer/src/components/downloader/AboutWorkspace.tsx",
   "utf8",
 );
+const settingsSource = await readFile(
+  "src/renderer/src/components/downloader/SettingsWorkspace.tsx",
+  "utf8",
+);
 const lockfileSource = await readFile("pnpm-lock.yaml", "utf8");
 const downloaderDir = "src/renderer/src/components/downloader";
 const downloaderFiles = await readdir(downloaderDir);
@@ -105,7 +109,54 @@ const checks = [
     pass:
       uiSource.includes('actionLabel="清除筛选"') ||
       (uiSource.includes('"清除筛选"') &&
-        uiSource.includes('setStatusFilter("all")')),
+        uiSource.includes("onFiltersChange(emptyTaskFilters)")),
+  },
+  {
+    name: "Task views are exclusive and advanced filters support grouping and dates",
+    pass:
+      uiSource.includes(
+        'task.state !== "completed" && task.state !== "removed"',
+      ) &&
+      uiSource.includes("groupTasksByStatus") &&
+      uiSource.includes("groups.map") &&
+      uiSource.includes('type="date"') &&
+      uiSource.includes('aria-label="高级筛选"') &&
+      uiSource.includes("getTaskFileTypes"),
+  },
+  {
+    name: "History and trash use one status badge and history supports single deletion",
+    pass:
+      uiSource.includes("<TaskStateBadge state={task.state} />") &&
+      uiSource.includes("actions.deleteHistoryRecord(task.gid)") &&
+      uiSource.includes("已下载文件会保留"),
+  },
+  {
+    name: "File details expose type and SHA-256 lifecycle",
+    pass:
+      detailsSource.includes("SHA-256") &&
+      detailsSource.includes("任务完成后计算") &&
+      detailsSource.includes("正在计算…") &&
+      detailsSource.includes("文件不可访问，无法计算") &&
+      detailsSource.includes("file.type"),
+  },
+  {
+    name: "Settings and About pages prevent horizontal overflow",
+    pass:
+      settingsSource.includes("overflow-x-hidden overflow-y-auto") &&
+      settingsSource.includes("min-w-0 max-w-full overflow-hidden") &&
+      aboutSource.includes("overflow-x-hidden overflow-y-auto") &&
+      aboutSource.includes("max-w-full overflow-hidden") &&
+      !aboutSource.includes("min-w-[560px]") &&
+      !aboutSource.includes("overflow-x-auto"),
+  },
+  {
+    name: "Overall progress excludes history and every non-active task state",
+    pass:
+      uiSource.includes("getActiveDownloadTasks") &&
+      uiSource.includes('task.state === "active"') &&
+      statusBarSource.includes("getActiveDownloadTasks(snapshot.tasks)") &&
+      statusBarSource.includes("getCompletedBytes(activeTasks)") &&
+      statusBarSource.includes("getTotalBytes(activeTasks)"),
   },
   {
     name: "Theme preference is applied to the renderer",
@@ -211,10 +262,16 @@ const checks = [
     pass: css.includes("prefers-reduced-motion"),
   },
   {
-    name: "Source Han Sans typography is the design-system default",
+    name: "Bundled Noto Sans SC is the default and can be customized",
     pass:
-      css.includes("Source Han Sans SC") &&
-      designSystem.includes("Source Han Sans"),
+      css.includes("@font-face") &&
+      css.includes("NotoSansSC-Regular.ttf") &&
+      css.includes("--app-font-family") &&
+      app.includes("settings?.fontFamily") &&
+      settingsSource.includes("界面字体") &&
+      settingsSource.includes("字体预览") &&
+      settingsSource.includes("DEFAULT_APP_FONT_FAMILY") &&
+      designSystem.includes("bundled Noto Sans SC Regular"),
   },
   {
     name: "Directory picker and history controls exist",
@@ -261,13 +318,14 @@ const checks = [
       uiSource.includes("成功项已从输入框移除"),
   },
   {
-    name: "Source field documents protocols and enforces the 100-item UI limit",
+    name: "Source field documents supported protocols and enforces the 100-item UI limit",
     pass:
       uiSource.includes("粘贴链接，每行一条") &&
       uiSource.includes("Thunder/FlashGet/QQDL") &&
       uiSource.includes("{sourceCount}/100") &&
       uiSource.includes("sources.length > 100") &&
-      aboutSource.includes("暂不支持 ed2k、thunderx、迅雷云盘"),
+      aboutSource.includes("HTTP/HTTPS、FTP/SFTP、Magnet") &&
+      !aboutSource.includes("暂不支持 ed2k、thunderx、迅雷云盘"),
   },
   {
     name: "Compact add dialog removes redundant help and fits the 760px layout",

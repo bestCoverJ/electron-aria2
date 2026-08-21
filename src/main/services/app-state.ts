@@ -1,5 +1,10 @@
 import { app } from "electron";
-import type { AppSettings, RuntimeStatus, TaskSnapshot } from "@shared/types";
+import {
+  DEFAULT_APP_FONT_FAMILY,
+  type AppSettings,
+  type RuntimeStatus,
+  type TaskSnapshot,
+} from "@shared/types";
 
 export function createDefaultSettings(): AppSettings {
   return {
@@ -11,8 +16,16 @@ export function createDefaultSettings(): AppSettings {
     globalUploadLimit: null,
     proxyUrl: null,
     theme: "system",
+    fontFamily: DEFAULT_APP_FONT_FAMILY,
     shutdownBehavior: "ask",
     sidebarCollapsed: true,
+    windowBounds: {
+      x: null,
+      y: null,
+      width: 760,
+      height: 520,
+      maximized: false,
+    },
     advancedAria2Options: {},
   };
 }

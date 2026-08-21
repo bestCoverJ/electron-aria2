@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Noto Sans SC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../../../resources/assets/fonts/NotoSansSC-Regular.ttf")
+    format("truetype");
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -56,8 +65,8 @@
     @apply bg-background font-sans text-foreground antialiased;
     background: transparent;
     font-family:
-      "Source Han Sans SC", "Source Han Sans CN", "Noto Sans CJK SC",
-      "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+      var(--app-font-family, "Noto Sans SC"), "Microsoft YaHei UI",
+      "PingFang SC", system-ui, sans-serif;
   }
 
   button,

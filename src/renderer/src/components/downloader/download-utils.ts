@@ -11,13 +11,28 @@ export type DownloadStatusFilter =
   | "failed"
   | "stopped";
 
+export interface TaskFilters {
+  query: string;
+  status: DownloadStatusFilter;
+  fileType: string;
+  dateFrom: string;
+  dateTo: string;
+}
+
+export const emptyTaskFilters: TaskFilters = {
+  query: "",
+  status: "all",
+  fileType: "all",
+  dateFrom: "",
+  dateTo: "",
+};
+
 export function getVisibleTasks(
   tasks: DownloadTask[],
   view: MainView,
-  query: string,
-  statusFilter: DownloadStatusFilter = "all",
+  filters: TaskFilters,
 ): DownloadTask[] {
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = filters.query.trim().toLowerCase();
   let scoped = tasks.filter((task) => {
     if (view === "history") {
       return task.state === "completed";
@@ -28,15 +43,23 @@ export function getVisibleTasks(
     }
 
     if (view === "downloads") {
-      return task.state !== "removed";
+      return task.state !== "completed" && task.state !== "removed";
     }
 
     return false;
   });
 
-  if (view === "downloads" && statusFilter !== "all") {
-    scoped = scoped.filter((task) => matchesStatusFilter(task, statusFilter));
+  if (filters.status !== "all") {
+    scoped = scoped.filter((task) => matchesStatusFilter(task, filters.status));
   }
+
+  if (filters.fileType !== "all") {
+    scoped = scoped.filter((task) =>
+      task.files.some((file) => file.type === filters.fileType),
+    );
+  }
+
+  scoped = scoped.filter((task) => matchesDateRange(task, filters));
 
   if (!normalizedQuery) {
     return scoped;
@@ -49,6 +72,53 @@ export function getVisibleTasks(
         file.path.toLowerCase().includes(normalizedQuery),
       ),
   );
+}
+
+function matchesDateRange(task: DownloadTask, filters: TaskFilters): boolean {
+  const timestamp = new Date(task.updatedAt).getTime();
+  const from = filters.dateFrom
+    ? new Date(`${filters.dateFrom}T00:00:00`).getTime()
+    : Number.NEGATIVE_INFINITY;
+  const to = filters.dateTo
+    ? new Date(`${filters.dateTo}T23:59:59.999`).getTime()
+    : Number.POSITIVE_INFINITY;
+
+  return timestamp >= from && timestamp <= to;
+}
+
+export function hasActiveTaskFilters(filters: TaskFilters): boolean {
+  return (
+    Boolean(filters.query.trim()) ||
+    filters.status !== "all" ||
+    filters.fileType !== "all" ||
+    Boolean(filters.dateFrom) ||
+    Boolean(filters.dateTo)
+  );
+}
+
+export function getTaskFileTypes(tasks: DownloadTask[]): string[] {
+  return Array.from(
+    new Set(tasks.flatMap((task) => task.files.map((file) => file.type))),
+  ).sort((left, right) => left.localeCompare(right, "zh-CN"));
+}
+
+export function groupTasksByStatus(
+  tasks: DownloadTask[],
+): Array<{ state: DownloadTask["state"]; tasks: DownloadTask[] }> {
+  const order: DownloadTask["state"][] = [
+    "active",
+    "queued",
+    "paused",
+    "seeding",
+    "failed",
+  ];
+
+  return order
+    .map((state) => ({
+      state,
+      tasks: tasks.filter((task) => task.state === state),
+    }))
+    .filter((group) => group.tasks.length > 0);
 }
 
 export function getStatusFilterLabel(filter: DownloadStatusFilter): string {
@@ -256,13 +326,18 @@ function createAssetUrl(...segments: string[]): string {
 }
 
 export function calculateOverallProgress(snapshot: TaskSnapshot): number {
-  const total = getTotalBytes(snapshot.tasks);
+  const activeTasks = getActiveDownloadTasks(snapshot.tasks);
+  const total = getTotalBytes(activeTasks);
 
   if (total <= 0) {
     return 0;
   }
 
-  return (getCompletedBytes(snapshot.tasks) / total) * 100;
+  return (getCompletedBytes(activeTasks) / total) * 100;
+}
+
+export function getActiveDownloadTasks(tasks: DownloadTask[]): DownloadTask[] {
+  return tasks.filter((task) => task.state === "active");
 }
 
 export function getCompletedBytes(tasks: DownloadTask[]): number {

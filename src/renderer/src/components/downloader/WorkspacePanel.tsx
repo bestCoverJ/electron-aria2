@@ -1,7 +1,8 @@
 import type { AppSettings, DownloadTask } from "@shared/types";
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import {
   MoreHorizontal,
+  ListFilter,
   FolderOpen,
   Pause,
   Play,
@@ -10,6 +11,7 @@ import {
   RotateCcw,
   Search,
   Settings,
+  Trash2,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -40,12 +42,16 @@ import {
   formatDate,
   getEmptyMessage,
   getEmptyTitle,
+  getTaskFileTypes,
+  groupTasksByStatus,
+  hasActiveTaskFilters,
+  emptyTaskFilters,
   getStatusFilterLabel,
   getTaskFileIconUrl,
   getViewIcon,
   getViewTitle,
 } from "./download-utils";
-import type { DownloadStatusFilter } from "./download-utils";
+import type { DownloadStatusFilter, TaskFilters } from "./download-utils";
 import { EmptyState, TaskStateBadge } from "./shared";
 import { SettingsWorkspace } from "./SettingsWorkspace";
 import type { MainView } from "./types";
@@ -58,13 +64,12 @@ export function WorkspacePanel({
   onAdd,
   onClearTaskSelection,
   onSelectTask,
-  query,
+  filters,
   selectedGid,
-  setQuery,
-  setStatusFilter,
+  onFiltersChange,
   settings,
-  statusFilter,
   tasks,
+  unfilteredTasks,
 }: {
   actions: ReturnType<typeof useDownloads>["actions"];
   activeView: MainView;
@@ -73,13 +78,12 @@ export function WorkspacePanel({
   onAdd: () => void;
   onClearTaskSelection: () => void;
   onSelectTask: (gid: string) => void;
-  query: string;
+  filters: TaskFilters;
   selectedGid: string | null;
-  setQuery: (query: string) => void;
-  setStatusFilter: (filter: DownloadStatusFilter) => void;
+  onFiltersChange: (filters: TaskFilters) => void;
   settings: AppSettings | null;
-  statusFilter: DownloadStatusFilter;
   tasks: DownloadTask[];
+  unfilteredTasks: DownloadTask[];
 }) {
   if (activeView === "about") {
     return (
@@ -88,10 +92,9 @@ export function WorkspacePanel({
           count={0}
           actions={actions}
           onAdd={onAdd}
-          query={query}
-          setQuery={setQuery}
-          setStatusFilter={setStatusFilter}
-          statusFilter={statusFilter}
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          sourceTasks={unfilteredTasks}
           title="关于 TideX"
           variant="about"
           compact={false}
@@ -108,10 +111,9 @@ export function WorkspacePanel({
           count={0}
           actions={actions}
           onAdd={onAdd}
-          query={query}
-          setQuery={setQuery}
-          setStatusFilter={setStatusFilter}
-          statusFilter={statusFilter}
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          sourceTasks={unfilteredTasks}
           title="设置"
           variant="settings"
           compact={false}
@@ -136,10 +138,9 @@ export function WorkspacePanel({
         count={tasks.length}
         actions={actions}
         onAdd={onAdd}
-        query={query}
-        setQuery={setQuery}
-        setStatusFilter={setStatusFilter}
-        statusFilter={statusFilter}
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        sourceTasks={unfilteredTasks}
         title={getViewTitle(activeView)}
         variant={activeView}
         compact={Boolean(selectedGid)}
@@ -175,28 +176,25 @@ export function WorkspacePanel({
       ) : null}
       {tasks.length === 0 ? (
         <EmptyState
-          actionLabel={
-            query.trim() || statusFilter !== "all" ? "清除筛选" : undefined
-          }
+          actionLabel={hasActiveTaskFilters(filters) ? "清除筛选" : undefined}
           icon={getViewIcon(activeView)}
           isLoading={isLoading}
           message={
-            query.trim() || statusFilter !== "all"
+            hasActiveTaskFilters(filters)
               ? "请尝试更换关键词或清除当前筛选条件。"
               : getEmptyMessage(activeView)
           }
           onAction={
-            query.trim() || statusFilter !== "all"
+            hasActiveTaskFilters(filters)
               ? () => {
-                  setQuery("");
-                  setStatusFilter("all");
+                  onFiltersChange(emptyTaskFilters);
                 }
               : activeView === "downloads"
                 ? onAdd
                 : undefined
           }
           title={
-            query.trim() || statusFilter !== "all"
+            hasActiveTaskFilters(filters)
               ? "没有匹配的任务"
               : getEmptyTitle(activeView)
           }
@@ -210,18 +208,14 @@ export function WorkspacePanel({
             }
           }}
         >
-          <div className="flex flex-col gap-2">
-            {tasks.map((task) => (
-              <TaskListItem
-                actions={actions}
-                key={task.gid}
-                onSelect={onSelectTask}
-                selected={selectedGid === task.gid}
-                task={task}
-                view={activeView}
-              />
-            ))}
-          </div>
+          <TaskListContent
+            actions={actions}
+            grouped={activeView === "downloads" && filters.status === "all"}
+            onSelect={onSelectTask}
+            selectedGid={selectedGid}
+            tasks={tasks}
+            view={activeView}
+          />
         </div>
       )}
     </section>
@@ -239,10 +233,9 @@ function WorkspaceHeader({
   actions,
   count,
   onAdd,
-  query,
-  setQuery,
-  setStatusFilter,
-  statusFilter,
+  filters,
+  onFiltersChange,
+  sourceTasks,
   title,
   variant,
   compact,
@@ -251,119 +244,126 @@ function WorkspaceHeader({
   compact: boolean;
   count: number;
   onAdd: () => void;
-  query: string;
-  setQuery: (query: string) => void;
-  setStatusFilter: (filter: DownloadStatusFilter) => void;
-  statusFilter: DownloadStatusFilter;
+  filters: TaskFilters;
+  onFiltersChange: (filters: TaskFilters) => void;
+  sourceTasks: DownloadTask[];
   title: string;
   variant: MainView;
 }) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const fileTypes = getTaskFileTypes(sourceTasks);
+  const showFilters = variant !== "settings" && variant !== "about" && !compact;
+
   return (
-    <header className="flex h-12 items-center gap-2 border-b px-3 min-[1040px]:gap-3 min-[1040px]:px-4">
-      <h1 className="min-w-0 truncate text-sm font-semibold">{title}</h1>
-      {variant !== "settings" && variant !== "about" && !compact ? (
-        <Badge className="shrink-0" variant="secondary">
-          {count}
-        </Badge>
-      ) : null}
-      <div className="min-w-0 flex-1" />
-      {variant === "downloads" ? (
-        <Button
-          aria-label={compact ? "新建下载任务" : undefined}
-          onClick={onAdd}
-          size="sm"
-          title={compact ? "新建" : undefined}
-        >
-          <Plus aria-hidden="true" size={14} />
-          {compact ? null : "新建"}
-        </Button>
-      ) : null}
-      {variant !== "settings" && variant !== "about" && !compact ? (
-        <>
-          {variant === "downloads" ? (
-            <Select
-              onValueChange={(value) =>
-                setStatusFilter(value as DownloadStatusFilter)
+    <header className="shrink-0 border-b">
+      <div className="flex h-12 items-center gap-2 px-3 min-[1040px]:gap-3 min-[1040px]:px-4">
+        <h1 className="min-w-0 truncate text-sm font-semibold">{title}</h1>
+        {variant !== "settings" && variant !== "about" && !compact ? (
+          <Badge className="shrink-0" variant="secondary">
+            {count}
+          </Badge>
+        ) : null}
+        <div className="min-w-0 flex-1" />
+        {variant === "downloads" ? (
+          <Button
+            aria-label={compact ? "新建下载任务" : undefined}
+            onClick={onAdd}
+            size="sm"
+            title={compact ? "新建" : undefined}
+          >
+            <Plus aria-hidden="true" size={14} />
+            {compact ? null : "新建"}
+          </Button>
+        ) : null}
+        {showFilters ? (
+          <>
+            <label className="relative w-36">
+              <span className="sr-only">搜索</span>
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                size={15}
+              />
+              <Input
+                className="h-8 pl-8"
+                onChange={(event) =>
+                  onFiltersChange({ ...filters, query: event.target.value })
+                }
+                placeholder="搜索"
+                value={filters.query}
+              />
+            </label>
+            <Button
+              aria-expanded={advancedOpen}
+              aria-label="高级筛选"
+              onClick={() => setAdvancedOpen((current) => !current)}
+              size="icon"
+              variant={
+                hasActiveTaskFilters({ ...filters, query: "" })
+                  ? "secondary"
+                  : "outline"
               }
-              value={statusFilter}
             >
-              <SelectTrigger aria-label="筛选下载状态" className="h-8 w-28">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="end">
-                <SelectGroup>
-                  {statusFilters.map((filter) => (
-                    <SelectItem key={filter} value={filter}>
-                      {getStatusFilterLabel(filter)}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          ) : null}
-          <label className="relative w-36">
-            <span className="sr-only">搜索</span>
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-              size={15}
-            />
-            <Input
-              className="h-8 pl-8"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索"
-              value={query}
-            />
-          </label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button aria-label="更多操作" size="icon" variant="ghost">
-                <MoreHorizontal aria-hidden="true" size={16} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuGroup>
-                {variant === "downloads" ? (
-                  <>
+              <ListFilter aria-hidden="true" size={16} />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button aria-label="更多操作" size="icon" variant="ghost">
+                  <MoreHorizontal aria-hidden="true" size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuGroup>
+                  {variant === "downloads" ? (
+                    <>
+                      <DropdownMenuItem
+                        disabled={count === 0}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "确定删除全部下载任务吗？已下载的文件不会被删除。",
+                            )
+                          ) {
+                            void actions.clearAll();
+                          }
+                        }}
+                      >
+                        删除全部下载任务
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => void actions.clearCompleted()}
+                      >
+                        删除已完成的任务
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => void actions.retryFailed()}
+                      >
+                        重试失败的下载任务
+                      </DropdownMenuItem>
+                    </>
+                  ) : variant === "history" ? (
                     <DropdownMenuItem
                       disabled={count === 0}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            "确定删除全部下载任务吗？已下载的文件不会被删除。",
-                          )
-                        ) {
-                          void actions.clearAll();
-                        }
-                      }}
-                    >
-                      删除全部下载任务
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
                       onClick={() => void actions.clearCompleted()}
                     >
-                      删除已完成的任务
+                      清空历史记录
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => void actions.retryFailed()}
-                    >
-                      重试失败的下载任务
-                    </DropdownMenuItem>
-                  </>
-                ) : variant === "history" ? (
-                  <DropdownMenuItem
-                    disabled={count === 0}
-                    onClick={() => void actions.clearCompleted()}
-                  >
-                    清空历史记录
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem disabled>暂无批量操作</DropdownMenuItem>
-                )}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
+                  ) : (
+                    <DropdownMenuItem disabled>暂无批量操作</DropdownMenuItem>
+                  )}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : null}
+      </div>
+      {showFilters && advancedOpen ? (
+        <AdvancedFilters
+          fileTypes={fileTypes}
+          filters={filters}
+          onChange={onFiltersChange}
+          variant={variant}
+        />
       ) : null}
     </header>
   );
@@ -378,6 +378,174 @@ const statusFilters: DownloadStatusFilter[] = [
   "failed",
   "stopped",
 ];
+
+function AdvancedFilters({
+  fileTypes,
+  filters,
+  onChange,
+  variant,
+}: {
+  fileTypes: string[];
+  filters: TaskFilters;
+  onChange: (filters: TaskFilters) => void;
+  variant: MainView;
+}) {
+  const availableStatuses = statusFilters.filter((status) => {
+    if (variant === "history")
+      return status === "all" || status === "completed";
+    if (variant === "trash") return status === "all" || status === "stopped";
+    return status !== "completed" && status !== "stopped";
+  });
+
+  return (
+    <div className="grid grid-cols-2 gap-2 border-t bg-muted/30 px-3 py-2 min-[1040px]:grid-cols-4 min-[1040px]:px-4">
+      <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+        状态
+        <Select
+          onValueChange={(value) =>
+            onChange({ ...filters, status: value as DownloadStatusFilter })
+          }
+          value={filters.status}
+        >
+          <SelectTrigger className="h-8" aria-label="任务状态">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {availableStatuses.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {getStatusFilterLabel(status)}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </label>
+      <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+        文件类型
+        <Select
+          onValueChange={(value) => onChange({ ...filters, fileType: value })}
+          value={filters.fileType}
+        >
+          <SelectTrigger className="h-8" aria-label="文件类型">
+            <SelectValue placeholder="全部类型" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部类型</SelectItem>
+            {fileTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </label>
+      <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+        开始日期
+        <Input
+          className="h-8"
+          max={filters.dateTo || undefined}
+          onChange={(event) =>
+            onChange({ ...filters, dateFrom: event.target.value })
+          }
+          type="date"
+          value={filters.dateFrom}
+        />
+      </label>
+      <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+        结束日期
+        <Input
+          className="h-8"
+          min={filters.dateFrom || undefined}
+          onChange={(event) =>
+            onChange({ ...filters, dateTo: event.target.value })
+          }
+          type="date"
+          value={filters.dateTo}
+        />
+      </label>
+      {hasActiveTaskFilters(filters) ? (
+        <Button
+          className="col-span-2 justify-self-start min-[1040px]:col-span-4"
+          onClick={() => onChange(emptyTaskFilters)}
+          size="sm"
+          variant="ghost"
+        >
+          <X aria-hidden="true" size={14} /> 清除筛选
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function TaskListContent({
+  actions,
+  grouped,
+  onSelect,
+  selectedGid,
+  tasks,
+  view,
+}: {
+  actions: ReturnType<typeof useDownloads>["actions"];
+  grouped: boolean;
+  onSelect: (gid: string) => void;
+  selectedGid: string | null;
+  tasks: DownloadTask[];
+  view: MainView;
+}) {
+  const groups = grouped ? groupTasksByStatus(tasks) : [];
+  if (grouped) {
+    return (
+      <div className="flex flex-col gap-3">
+        {groups.map((group) => (
+          <section
+            key={group.state}
+            aria-label={getStatusFilterLabel(stateToFilter(group.state))}
+          >
+            <h2 className="mb-1.5 flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+              {getStatusFilterLabel(stateToFilter(group.state))}
+              <Badge variant="secondary">{group.tasks.length}</Badge>
+            </h2>
+            <div className="flex flex-col gap-2">
+              {group.tasks.map((task) => (
+                <TaskListItem
+                  actions={actions}
+                  key={task.gid}
+                  onSelect={onSelect}
+                  selected={selectedGid === task.gid}
+                  task={task}
+                  view={view}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {tasks.map((task) => (
+        <TaskListItem
+          actions={actions}
+          key={task.gid}
+          onSelect={onSelect}
+          selected={selectedGid === task.gid}
+          task={task}
+          view={view}
+        />
+      ))}
+    </div>
+  );
+}
+
+function stateToFilter(state: DownloadTask["state"]): DownloadStatusFilter {
+  if (state === "queued") return "not-started";
+  if (state === "active" || state === "seeding") return "active";
+  if (state === "failed") return "failed";
+  if (state === "removed") return "stopped";
+  return state;
+}
 
 function TaskListItem({
   actions,
@@ -417,12 +585,15 @@ function TaskListItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="truncate text-sm font-semibold">{task.name}</h2>
-            <TaskStateBadge state={task.state} />
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{formatBytes(task.completedLength)}</span>
+            <span className="whitespace-nowrap">
+              {formatBytes(task.completedLength)}
+            </span>
             {task.totalLength ? (
-              <span>/ {formatBytes(task.totalLength)}</span>
+              <span className="whitespace-nowrap">
+                / {formatBytes(task.totalLength)}
+              </span>
             ) : null}
             {view === "history" ? (
               <span>{formatDate(task.updatedAt)}</span>
@@ -450,11 +621,28 @@ function TaskListItem({
           ) : null}
         </div>
       </button>
-      {view === "history" ? (
-        <Badge variant="success">已完成</Badge>
-      ) : (
-        <TaskQuickAction actions={actions} task={task} />
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        <TaskStateBadge state={task.state} />
+        {view === "history" ? (
+          <Button
+            aria-label={`删除历史记录 ${task.name}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (
+                window.confirm("确定删除这条历史记录吗？已下载文件会保留。")
+              ) {
+                void actions.deleteHistoryRecord(task.gid);
+              }
+            }}
+            size="icon"
+            variant="ghost"
+          >
+            <Trash2 aria-hidden="true" size={15} />
+          </Button>
+        ) : (
+          <TaskQuickAction actions={actions} task={task} />
+        )}
+      </div>
     </article>
   );
 }

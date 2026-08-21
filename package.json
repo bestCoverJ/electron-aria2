@@ -116,6 +116,13 @@
       ],
       "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
     },
+    "nsis": {
+      "installerIcon": "resources/assets/icons/tide-logo.ico",
+      "uninstallerIcon": "resources/assets/icons/tide-logo.ico",
+      "installerHeaderIcon": "resources/assets/icons/tide-logo.ico",
+      "createDesktopShortcut": "always",
+      "shortcutName": "TideX"
+    },
     "mac": {
       "icon": "resources/assets/icons/tide-logo.png",
       "target": [

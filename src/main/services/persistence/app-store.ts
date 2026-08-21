@@ -2,6 +2,7 @@ import type {
   AppSettings,
   DownloadTask,
   DownloadTaskMetadata,
+  WindowBoundsPreference,
 } from "@shared/types";
 import { app } from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -24,10 +25,21 @@ export class AppStore {
   }
 
   async updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
-    const settings = await normalizeSettingsPatch(this.getSettings(), patch);
+    const settings = await normalizeSettingsPatch(this.getSettings(), {
+      ...patch,
+      windowBounds: this.state.settings.windowBounds,
+    });
     this.state = { ...this.state, settings };
     this.writeState();
     return settings;
+  }
+
+  updateWindowBounds(windowBounds: WindowBoundsPreference): void {
+    this.state = {
+      ...this.state,
+      settings: { ...this.state.settings, windowBounds },
+    };
+    this.writeState();
   }
 
   listTaskMetadata(): DownloadTaskMetadata[] {
@@ -148,6 +160,10 @@ export class AppStore {
         settings: {
           ...defaults.settings,
           ...(stored.settings ?? {}),
+          windowBounds: {
+            ...defaults.settings.windowBounds,
+            ...(stored.settings?.windowBounds ?? {}),
+          },
           recentDownloadDirectories: [
             ...(stored.settings?.recentDownloadDirectories ??
               defaults.settings.recentDownloadDirectories),
@@ -178,10 +194,28 @@ function normalizeTaskMetadata(
       gid,
       {
         ...item,
+        notificationGeneration: item.notificationGeneration ?? 0,
         logLines: item.logLines ?? [],
+        persistedTask: item.persistedTask
+          ? {
+              ...item.persistedTask,
+              files: (item.persistedTask.files ?? []).map((file) => ({
+                ...file,
+                type: file.type ?? getFileType(file.path),
+                sha256: file.sha256 ?? null,
+                sha256Status:
+                  file.sha256Status ?? (file.sha256 ? "available" : "pending"),
+              })),
+            }
+          : undefined,
       },
     ]),
   );
+}
+
+function getFileType(path: string): string {
+  const extension = /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toUpperCase();
+  return extension ? `${extension} 文件` : "未知类型";
 }
 
 function formatTaskLogLine(message: string): string {

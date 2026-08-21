@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   formatBytes,
+  getActiveDownloadTasks,
   getCompletedBytes,
   getTotalBytes,
 } from "./download-utils";
@@ -16,12 +17,14 @@ export function StatusBar({
   progress: number;
   snapshot: TaskSnapshot;
 }) {
+  const activeTasks = getActiveDownloadTasks(snapshot.tasks);
+
   return (
     <footer className="status-glass grid h-14 shrink-0 grid-cols-[minmax(190px,0.9fr)_220px_minmax(180px,1fr)_226px] max-[900px]:grid-cols-[minmax(140px,1fr)_112px_minmax(112px,0.75fr)_158px]">
       <StatusBlock
         label="总进度"
-        value={`${formatBytes(getCompletedBytes(snapshot.tasks))} / ${formatBytes(
-          getTotalBytes(snapshot.tasks),
+        value={`${formatBytes(getCompletedBytes(activeTasks))} / ${formatBytes(
+          getTotalBytes(activeTasks),
         )}`}
       />
       <div className="flex items-center gap-3 border-l px-4 max-[900px]:gap-2 max-[900px]:px-3">

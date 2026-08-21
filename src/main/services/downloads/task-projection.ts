@@ -7,6 +7,8 @@ import type {
   TransferSummary,
 } from "@shared/types";
 import type { Aria2File, Aria2Task } from "./aria2-types";
+import { statSync } from "node:fs";
+import { join } from "node:path";
 import {
   normalizeDownloadSource,
   redactDownloadSource,
@@ -56,17 +58,17 @@ function restorePersistedTask(
   metadata: DownloadTaskMetadata,
 ): DownloadTask | null {
   if (metadata.persistedTask) {
-    return {
+    return repairPersistedFileInformation({
       ...metadata.persistedTask,
       logLines: [...metadata.logLines],
-    };
+    });
   }
 
   if (!metadata.logLines.some((line) => line.includes("下载完成。"))) {
     return null;
   }
 
-  return {
+  return repairPersistedFileInformation({
     gid: metadata.gid,
     source: getSafeSource(metadata.source),
     directory: metadata.directory,
@@ -79,11 +81,87 @@ function restorePersistedTask(
     uploadSpeed: 0,
     connections: 0,
     remainingSeconds: null,
-    files: [],
+    files: createFallbackFiles(metadata),
     errorMessage: null,
     logLines: [...metadata.logLines],
     createdAt: metadata.createdAt,
     updatedAt: metadata.updatedAt,
+  });
+}
+
+function createFallbackFiles(
+  metadata: DownloadTaskMetadata,
+): DownloadTask["files"] {
+  const name = metadata.displayName ?? inferNameFromSource(metadata.source);
+  const path = metadata.directory ? join(metadata.directory, name) : "";
+
+  return path
+    ? [
+        {
+          index: 1,
+          path,
+          length: 0,
+          completedLength: 0,
+          selected: true,
+          type: getFileType(path),
+          sha256: null,
+          sha256Status: "pending",
+        },
+      ]
+    : [];
+}
+
+function repairPersistedFileInformation(task: DownloadTask): DownloadTask {
+  const files = (
+    task.files.length > 0
+      ? task.files
+      : createFallbackFiles({
+          gid: task.gid,
+          notificationGeneration: 0,
+          source: task.source,
+          displayName: task.name,
+          directory: task.directory,
+          logLines: task.logLines,
+          userNote: null,
+          removeFilesOnDelete: false,
+          createdAt: task.createdAt,
+          updatedAt: task.updatedAt,
+        })
+  ).map((file) => {
+    let length = file.length;
+
+    if (length <= 0 && file.path) {
+      try {
+        length = statSync(file.path).size;
+      } catch {
+        // Keep the historical record even if the local file is unavailable.
+      }
+    }
+
+    return {
+      ...file,
+      length,
+      completedLength:
+        task.state === "completed" && length > 0
+          ? length
+          : file.completedLength,
+      type: file.type ?? getFileType(file.path),
+      sha256: file.sha256 ?? null,
+      sha256Status:
+        file.sha256Status ?? (file.sha256 ? "available" : "pending"),
+    };
+  });
+  const completedLength = files.reduce(
+    (total, file) => total + file.completedLength,
+    0,
+  );
+  const totalLength = files.reduce((total, file) => total + file.length, 0);
+
+  return {
+    ...task,
+    files,
+    completedLength: completedLength || task.completedLength,
+    totalLength: totalLength || task.totalLength,
   };
 }
 
@@ -125,11 +203,21 @@ function projectTask(
       downloadSpeed > 0 && remainingBytes > 0
         ? Math.ceil(remainingBytes / downloadSpeed)
         : null,
-    files: (task.files ?? []).map(projectFile),
+    files: (task.files ?? []).map((file) =>
+      projectFile(
+        file,
+        metadata?.persistedTask?.files.find(
+          (persisted) => persisted.path === file.path,
+        ),
+      ),
+    ),
     errorMessage: task.errorMessage ?? null,
     logLines: metadata?.logLines ?? [],
     createdAt: metadata?.createdAt ?? new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    updatedAt:
+      metadata?.persistedTask?.state === projectTaskState(task)
+        ? metadata.persistedTask.updatedAt
+        : new Date().toISOString(),
   };
 }
 
@@ -159,14 +247,25 @@ function projectTaskState(task: Aria2Task): DownloadTaskState {
   }
 }
 
-function projectFile(file: Aria2File) {
+function projectFile(
+  file: Aria2File,
+  persisted?: DownloadTask["files"][number],
+) {
   return {
     index: Number.parseInt(file.index, 10),
     path: file.path,
     length: parseByteCount(file.length),
     completedLength: parseByteCount(file.completedLength),
     selected: file.selected === "true",
+    type: getFileType(file.path),
+    sha256: persisted?.sha256 ?? null,
+    sha256Status: persisted?.sha256Status ?? "pending",
   };
+}
+
+function getFileType(path: string): string {
+  const extension = /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toUpperCase();
+  return extension ? `${extension} 文件` : "未知类型";
 }
 
 function createTransferSummary(tasks: DownloadTask[]): TransferSummary {

@@ -111,8 +111,8 @@ export function AboutWorkspace(): ReactElement {
   };
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-4 py-4 min-[1040px]:px-5">
-      <div className="mx-auto grid max-w-5xl gap-4 min-[1040px]:gap-5">
+    <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 min-[1040px]:px-5">
+      <div className="mx-auto grid min-w-0 max-w-5xl gap-4 min-[1040px]:gap-5">
         <section className="flex items-center gap-4 rounded-md border bg-white/80 p-4 shadow-sm dark:bg-card/80 min-[1040px]:p-5">
           <img
             alt=""
@@ -127,9 +127,6 @@ export function AboutWorkspace(): ReactElement {
               基于 aria2 的桌面下载管理器，支持
               HTTP/HTTPS、FTP/SFTP、Magnet、torrent、 Metalink 及经典
               Thunder/FlashGet/QQDL 链接。
-            </p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              暂不支持 ed2k、thunderx、迅雷云盘或需要账号服务的分享链接。
             </p>
             <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
               <span className="rounded-md border bg-background px-2.5 py-1">
@@ -217,8 +214,8 @@ export function AboutWorkspace(): ReactElement {
             />
             <h3 className="text-sm font-semibold">当前依赖版本</h3>
           </div>
-          <div className="mt-4 overflow-x-auto rounded-md border">
-            <div className="grid min-w-[560px] grid-cols-[0.85fr_1.1fr_92px_1.7fr] bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground">
+          <div className="mt-4 max-w-full overflow-hidden rounded-md border">
+            <div className="grid min-w-0 grid-cols-[minmax(0,0.85fr)_minmax(0,1.1fr)_72px_minmax(0,1.7fr)] bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground">
               <span>组件</span>
               <span>版本</span>
               <span>许可证</span>
@@ -226,18 +223,24 @@ export function AboutWorkspace(): ReactElement {
             </div>
             {openSourceItems.map((item) => (
               <div
-                className="grid min-w-[560px] grid-cols-[0.85fr_1.1fr_92px_1.7fr] border-t px-3 py-2 text-xs leading-5"
+                className="grid min-w-0 grid-cols-[minmax(0,0.85fr)_minmax(0,1.1fr)_72px_minmax(0,1.7fr)] border-t px-3 py-2 text-xs leading-5"
                 key={item.name}
               >
-                <span className="font-medium">{item.name}</span>
+                <span className="min-w-0 break-words pr-2 font-medium">
+                  {item.name}
+                </span>
                 <span
-                  className="truncate pr-2 text-muted-foreground"
+                  className="min-w-0 break-words pr-2 text-muted-foreground"
                   title={item.version}
                 >
                   {item.version}
                 </span>
-                <span className="text-muted-foreground">{item.license}</span>
-                <span className="text-muted-foreground">{item.usage}</span>
+                <span className="min-w-0 break-words text-muted-foreground">
+                  {item.license}
+                </span>
+                <span className="min-w-0 break-words text-muted-foreground">
+                  {item.usage}
+                </span>
               </div>
             ))}
           </div>

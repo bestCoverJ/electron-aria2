@@ -1,6 +1,16 @@
 export type ThemePreference = "system" | "light" | "dark";
 
+export const DEFAULT_APP_FONT_FAMILY = "Noto Sans SC";
+
 export type ShutdownBehavior = "ask" | "minimize-to-tray" | "quit";
+
+export interface WindowBoundsPreference {
+  x: number | null;
+  y: number | null;
+  width: number;
+  height: number;
+  maximized: boolean;
+}
 
 export type RuntimeAvailability = "starting" | "ready" | "unavailable";
 
@@ -53,13 +63,16 @@ export interface AppSettings {
   globalUploadLimit: number | null;
   proxyUrl: string | null;
   theme: ThemePreference;
+  fontFamily: string;
   shutdownBehavior: ShutdownBehavior;
   sidebarCollapsed: boolean;
+  windowBounds: WindowBoundsPreference;
   advancedAria2Options: Record<string, string>;
 }
 
 export interface DownloadTaskMetadata {
   gid: string;
+  notificationGeneration: number;
   source: string;
   displayName: string | null;
   directory: string | null;
@@ -85,6 +98,9 @@ export interface DownloadTaskFile {
   length: number;
   completedLength: number;
   selected: boolean;
+  type: string;
+  sha256: string | null;
+  sha256Status: "pending" | "calculating" | "available" | "unavailable";
 }
 
 export interface DownloadTask {
@@ -208,6 +224,7 @@ export interface TideApi {
     retry(gid: string): Promise<{ gid: string }>;
     clearAll(): Promise<void>;
     clearCompleted(): Promise<void>;
+    deleteHistoryRecord(gid: string): Promise<void>;
     retryFailed(): Promise<void>;
     revealFile(gid: string): Promise<void>;
     revealFolder(gid: string): Promise<void>;

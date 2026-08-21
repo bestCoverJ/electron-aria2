@@ -9,6 +9,11 @@
 - **WHEN** 用户启动打包后的 Windows 应用
 - **THEN** 窗口和任务管理器使用 TideX 而非 Electron 或 Tide X
 
+#### Scenario: Windows 安装与创建快捷方式
+
+- **WHEN** 用户安装应用并查看安装程序、卸载程序或桌面快捷方式
+- **THEN** 系统显示 TideX 图标而非 Electron 默认图标
+
 ### Requirement: 改名不变更用户数据位置
 
 系统 MUST 在改名后继续使用旧 `tide-x` 用户数据目录。

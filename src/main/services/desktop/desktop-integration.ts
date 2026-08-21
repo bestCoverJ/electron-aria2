@@ -23,6 +23,7 @@ export class DesktopIntegration {
     }
 
     this.createTray();
+    this.restoreNotifiedTasks();
     this.startNotificationWatcher();
     void this.refreshTrayMenu();
   }
@@ -198,6 +199,17 @@ export class DesktopIntegration {
     }, 3000);
   }
 
+  private restoreNotifiedTasks(): void {
+    for (const metadata of this.store.listTaskMetadata()) {
+      if (
+        metadata.persistedTask &&
+        shouldNotify(metadata.persistedTask.state)
+      ) {
+        this.notifiedTasks.add(getNotificationKey(metadata));
+      }
+    }
+  }
+
   private stopNotificationWatcher(): void {
     if (this.notificationInterval) {
       clearInterval(this.notificationInterval);
@@ -216,11 +228,17 @@ export class DesktopIntegration {
       }
 
       for (const task of snapshot.tasks) {
-        if (!shouldNotify(task.state) || this.notifiedTasks.has(task.gid)) {
+        const metadata = this.store.getTaskMetadata(task.gid);
+        const notificationKey = getNotificationKey(metadata ?? task);
+
+        if (
+          !shouldNotify(task.state) ||
+          this.notifiedTasks.has(notificationKey)
+        ) {
           continue;
         }
 
-        this.notifiedTasks.add(task.gid);
+        this.notifiedTasks.add(notificationKey);
         const notification = new Notification({
           title: task.state === "completed" ? "下载完成" : "下载失败",
           body:
@@ -241,6 +259,13 @@ export class DesktopIntegration {
       this.updateTaskbarProgress();
     }
   }
+}
+
+function getNotificationKey(task: {
+  gid: string;
+  notificationGeneration?: number;
+}): string {
+  return `${task.gid}:${task.notificationGeneration ?? 0}`;
 }
 
 function shouldNotify(state: DownloadTaskState): boolean {

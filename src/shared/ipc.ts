@@ -20,6 +20,7 @@ export const ipcChannels = {
   downloadsRetry: "downloads:retry",
   downloadsClearAll: "downloads:clear-all",
   downloadsClearCompleted: "downloads:clear-completed",
+  downloadsDeleteHistoryRecord: "downloads:delete-history-record",
   downloadsRetryFailed: "downloads:retry-failed",
   downloadsRevealFile: "downloads:reveal-file",
   downloadsRevealFolder: "downloads:reveal-folder",

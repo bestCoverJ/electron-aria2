@@ -3,7 +3,8 @@ import type {
   ShutdownBehavior,
   ThemePreference,
 } from "@shared/types";
-import { SlidersHorizontal } from "lucide-react";
+import { DEFAULT_APP_FONT_FAMILY } from "@shared/types";
+import { RotateCcw, SlidersHorizontal } from "lucide-react";
 import type { FormEvent, ReactElement } from "react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -69,11 +70,11 @@ export function SettingsWorkspace({
 
   return (
     <form
-      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       onSubmit={handleSubmit}
     >
-      <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-        <div className="grid gap-5 min-[1160px]:grid-cols-2">
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 min-[1040px]:px-5">
+        <div className="grid min-w-0 gap-5 min-[1160px]:grid-cols-2">
           <SettingsGroup title="下载引擎">
             <label className="grid gap-2">
               <span className="text-xs font-medium">下载引擎</span>
@@ -135,6 +136,47 @@ export function SettingsWorkspace({
                 </SelectContent>
               </Select>
             </div>
+            <label className="grid gap-2" htmlFor="app-font-family">
+              <span className="text-xs font-medium">界面字体</span>
+              <div className="flex min-w-0 gap-2">
+                <Input
+                  id="app-font-family"
+                  maxLength={80}
+                  onChange={(event) =>
+                    setDraft({ ...draft, fontFamily: event.target.value })
+                  }
+                  placeholder={DEFAULT_APP_FONT_FAMILY}
+                  value={draft.fontFamily}
+                />
+                <Button
+                  aria-label="恢复默认字体"
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      fontFamily: DEFAULT_APP_FONT_FAMILY,
+                    })
+                  }
+                  title="恢复默认字体"
+                  type="button"
+                  variant="outline"
+                >
+                  <RotateCcw aria-hidden="true" size={14} />
+                  默认
+                </Button>
+              </div>
+            </label>
+            <div
+              aria-label="字体预览"
+              className="rounded-md border bg-muted/40 px-3 py-2 text-sm leading-6"
+              style={{
+                fontFamily: draft.fontFamily || DEFAULT_APP_FONT_FAMILY,
+              }}
+            >
+              TideX 字体预览：中文下载管理器 Aa 123
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              默认字体已内置；自定义字体需要已安装在当前系统中，保存后应用到整个界面。
+            </p>
           </SettingsGroup>
 
           <SettingsGroup title="关闭行为">
@@ -277,11 +319,11 @@ function SettingsGroup({
   title: string;
 }) {
   return (
-    <Card>
+    <Card className="min-w-0 max-w-full overflow-hidden">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">{children}</CardContent>
+      <CardContent className="min-w-0 space-y-3">{children}</CardContent>
     </Card>
   );
 }

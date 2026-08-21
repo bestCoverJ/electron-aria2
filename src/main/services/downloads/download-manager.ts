@@ -7,7 +7,9 @@ import type {
   TaskSnapshot,
 } from "@shared/types";
 import { shell } from "electron";
+import { createReadStream } from "node:fs";
 import { access, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 import type { Aria2Runtime } from "../aria2";
 import type { AppStore } from "../persistence";
@@ -25,6 +27,7 @@ import { createTaskSnapshot } from "./task-projection";
 
 export class DownloadManager {
   private readonly observedTasks = new Map<string, TaskLogCheckpoint>();
+  private readonly hashingTasks = new Set<string>();
 
   constructor(
     private readonly runtime: Aria2Runtime,
@@ -37,6 +40,7 @@ export class DownloadManager {
 
     this.store.upsertTaskMetadata({
       gid,
+      notificationGeneration: 0,
       source: parsed.originalSource,
       displayName: input.fileName?.trim() || null,
       directory: parsed.options.dir ?? null,
@@ -120,6 +124,15 @@ export class DownloadManager {
   ): Promise<void> {
     const client = this.runtime.getClient();
     const task = await this.findTask(gid);
+    const metadataBeforeRemoval = this.store.getTaskMetadata(gid);
+    const projectedBeforeRemoval =
+      task && metadataBeforeRemoval
+        ? createTaskSnapshot(
+            [task],
+            [metadataBeforeRemoval],
+            this.runtime.getStatus(),
+          ).tasks[0]
+        : metadataBeforeRemoval?.persistedTask;
     const isActiveTask =
       task?.status === "active" ||
       task?.status === "waiting" ||
@@ -154,6 +167,17 @@ export class DownloadManager {
         removeFilesOnDelete: removeFiles ?? metadata.removeFilesOnDelete,
       });
       this.store.appendTaskLog(gid, "任务已从列表移除。");
+      if (projectedBeforeRemoval) {
+        this.store.persistTaskSnapshot({
+          ...projectedBeforeRemoval,
+          state: "removed",
+          downloadSpeed: 0,
+          uploadSpeed: 0,
+          connections: 0,
+          remainingSeconds: null,
+          updatedAt: new Date().toISOString(),
+        });
+      }
     }
 
     if (removeFiles && task?.files) {
@@ -193,6 +217,7 @@ export class DownloadManager {
     this.store.upsertTaskMetadata({
       ...metadata,
       gid: nextGid,
+      notificationGeneration: metadata.notificationGeneration + 1,
       createdAt: metadata.createdAt,
     });
     this.store.appendTaskLog(nextGid, `已重新创建任务，来源任务：${gid}`);
@@ -271,6 +296,22 @@ export class DownloadManager {
     throwIfBatchFailed(results, "删除", "已完成任务");
   }
 
+  async deleteHistoryRecord(gid: string): Promise<void> {
+    const metadata = this.store.getTaskMetadata(gid);
+
+    if (metadata?.persistedTask?.state !== "completed") {
+      throw new Error("仅支持删除已完成的历史记录。");
+    }
+
+    await this.runtime
+      .getClient()
+      .removeDownloadResult(gid)
+      .catch(() => undefined);
+    this.store.removeTaskMetadata(gid);
+    this.observedTasks.delete(gid);
+    this.hashingTasks.delete(gid);
+  }
+
   async retryFailed(): Promise<void> {
     const tasks = await this.getRawTasks();
     const failed = tasks.filter((task) => task.status === "error");
@@ -336,9 +377,74 @@ export class DownloadManager {
       ) {
         this.store.persistTaskSnapshot(task);
       }
+
+      if (task.state === "completed") {
+        void this.ensureTaskHashes(task);
+      }
     }
 
     return snapshot;
+  }
+
+  private async ensureTaskHashes(
+    task: TaskSnapshot["tasks"][number],
+  ): Promise<void> {
+    if (
+      this.hashingTasks.has(task.gid) ||
+      task.files.length === 0 ||
+      task.files.every(
+        (file) =>
+          file.sha256Status === "available" ||
+          file.sha256Status === "unavailable",
+      )
+    ) {
+      return;
+    }
+
+    this.hashingTasks.add(task.gid);
+
+    try {
+      for (const file of task.files) {
+        if (
+          file.sha256Status === "available" ||
+          file.sha256Status === "unavailable"
+        ) {
+          continue;
+        }
+
+        this.updateFileHash(task.gid, file.index, null, "calculating");
+
+        try {
+          const sha256 = await calculateSha256(file.path);
+          this.updateFileHash(task.gid, file.index, sha256, "available");
+        } catch {
+          this.updateFileHash(task.gid, file.index, null, "unavailable");
+        }
+      }
+    } finally {
+      this.hashingTasks.delete(task.gid);
+    }
+  }
+
+  private updateFileHash(
+    gid: string,
+    fileIndex: number,
+    sha256: string | null,
+    sha256Status: "calculating" | "available" | "unavailable",
+  ): void {
+    const metadata = this.store.getTaskMetadata(gid);
+    const persistedTask = metadata?.persistedTask;
+
+    if (!metadata || !persistedTask) {
+      return;
+    }
+
+    this.store.persistTaskSnapshot({
+      ...persistedTask,
+      files: persistedTask.files.map((file) =>
+        file.index === fileIndex ? { ...file, sha256, sha256Status } : file,
+      ),
+    });
   }
 
   private migrateFollowedTaskMetadata(
@@ -444,6 +550,16 @@ export class DownloadManager {
       });
     }
   }
+}
+
+function calculateSha256(path: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash("sha256");
+    const stream = createReadStream(path);
+    stream.on("error", reject);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
 }
 
 interface TaskLogCheckpoint {

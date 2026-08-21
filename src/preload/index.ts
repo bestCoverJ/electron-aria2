@@ -61,6 +61,8 @@ const tideApi: TideApi = {
     clearAll: () => ipcRenderer.invoke(ipcChannels.downloadsClearAll),
     clearCompleted: () =>
       ipcRenderer.invoke(ipcChannels.downloadsClearCompleted),
+    deleteHistoryRecord: (gid: string) =>
+      ipcRenderer.invoke(ipcChannels.downloadsDeleteHistoryRecord, gid),
     retryFailed: () => ipcRenderer.invoke(ipcChannels.downloadsRetryFailed),
     revealFile: (gid: string) =>
       ipcRenderer.invoke(ipcChannels.downloadsRevealFile, gid),

@@ -143,6 +143,12 @@ export function useDownloads() {
           await refresh();
         });
       },
+      deleteHistoryRecord: async (gid: string) => {
+        await runAction(async () => {
+          await getTideApi().downloads.deleteHistoryRecord(gid);
+          await refresh();
+        }, true);
+      },
       retryFailed: async () => {
         await runAction(async () => {
           await getTideApi().downloads.retryFailed();

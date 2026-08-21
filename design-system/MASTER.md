@@ -76,10 +76,12 @@ actions, and settings immediately visible.
 
 ## Typography
 
-- Default UI font: Source Han Sans / Noto Sans CJK / 思源黑体 family.
+- Default UI font: bundled Noto Sans SC Regular.
 - Fallback stack:
-  `Source Han Sans SC`, `Noto Sans CJK SC`, `Microsoft YaHei`, `PingFang SC`,
-  `Inter`, system sans-serif.
+  user-selected system font, `Noto Sans SC`, `Microsoft YaHei UI`,
+  `PingFang SC`, system sans-serif.
+- The appearance settings may override the body font by installed family name;
+  code, hashes, and logs retain the monospace stack.
 - Use normal letter spacing. Do not scale type with viewport width.
 - Use compact headings inside dashboard panels; reserve large display type for
   actual hero surfaces, which Tide X does not use in the app shell.

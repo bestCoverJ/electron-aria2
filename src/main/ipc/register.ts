@@ -149,6 +149,11 @@ export function registerIpcHandlers(
     downloads.clearCompleted(),
   );
 
+  ipcMain.handle(
+    ipcChannels.downloadsDeleteHistoryRecord,
+    (_event, gid: string) => downloads.deleteHistoryRecord(gid),
+  );
+
   ipcMain.handle(ipcChannels.downloadsRetryFailed, () =>
     downloads.retryFailed(),
   );

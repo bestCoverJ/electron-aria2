@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_APP_FONT_FAMILY } from "@shared/types";
 import { AddDownloadDialog } from "@/components/downloader/AddDownloadDialog";
 import { AppSidebar } from "@/components/downloader/AppSidebar";
 import { CompactMode } from "@/components/downloader/CompactMode";
@@ -8,9 +9,10 @@ import { StatusBar } from "@/components/downloader/StatusBar";
 import { WorkspacePanel } from "@/components/downloader/WorkspacePanel";
 import {
   calculateOverallProgress,
+  emptyTaskFilters,
   getVisibleTasks,
 } from "@/components/downloader/download-utils";
-import type { DownloadStatusFilter } from "@/components/downloader/download-utils";
+import type { TaskFilters } from "@/components/downloader/download-utils";
 import type { DetailTab, MainView } from "@/components/downloader/types";
 import { useDownloads } from "@/hooks/use-downloads";
 import { cn } from "@/lib/utils";
@@ -18,8 +20,7 @@ import { cn } from "@/lib/utils";
 export function App(): ReactElement {
   const { actions, error, isLoading, settings, snapshot } = useDownloads();
   const [activeView, setActiveView] = useState<MainView>("downloads");
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<DownloadStatusFilter>("all");
+  const [filters, setFilters] = useState<TaskFilters>(emptyTaskFilters);
   const [selectedGid, setSelectedGid] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("overview");
   const [isCompactMode, setIsCompactMode] = useState(
@@ -33,8 +34,8 @@ export function App(): ReactElement {
   }, [settings?.sidebarCollapsed]);
 
   const visibleTasks = useMemo(
-    () => getVisibleTasks(snapshot.tasks, activeView, query, statusFilter),
-    [activeView, query, snapshot.tasks, statusFilter],
+    () => getVisibleTasks(snapshot.tasks, activeView, filters),
+    [activeView, filters, snapshot.tasks],
   );
   const selectedTask = selectedGid
     ? (snapshot.tasks.find((task) => task.gid === selectedGid) ?? null)
@@ -55,6 +56,14 @@ export function App(): ReactElement {
 
     return () => media.removeEventListener("change", applyTheme);
   }, [settings?.theme]);
+
+  useEffect(() => {
+    const fontFamily = settings?.fontFamily ?? DEFAULT_APP_FONT_FAMILY;
+    document.documentElement.style.setProperty(
+      "--app-font-family",
+      JSON.stringify(fontFamily),
+    );
+  }, [settings?.fontFamily]);
 
   if (isCompactMode) {
     return (
@@ -96,6 +105,7 @@ export function App(): ReactElement {
           collapsed={isSidebarCollapsed}
           onViewChange={(view) => {
             setActiveView(view);
+            setFilters(emptyTaskFilters);
             setSelectedGid(null);
             setDetailTab("overview");
           }}
@@ -114,12 +124,11 @@ export function App(): ReactElement {
           onAdd={() => setIsAddOpen(true)}
           onClearTaskSelection={() => setSelectedGid(null)}
           onSelectTask={setSelectedGid}
-          query={query}
+          filters={filters}
           selectedGid={selectedGid}
-          setQuery={setQuery}
-          setStatusFilter={setStatusFilter}
+          onFiltersChange={setFilters}
           settings={settings}
-          statusFilter={statusFilter}
+          unfilteredTasks={snapshot.tasks}
           tasks={visibleTasks}
         />
 

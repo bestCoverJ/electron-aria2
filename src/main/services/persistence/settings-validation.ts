@@ -31,9 +31,41 @@ export async function normalizeSettingsPatch(
   validateOptionalLimit(next.globalDownloadLimit, "globalDownloadLimit");
   validateOptionalLimit(next.globalUploadLimit, "globalUploadLimit");
   validateProxy(next.proxyUrl);
+  next.fontFamily = normalizeFontFamily(next.fontFamily);
   validateAdvancedOptions(next.advancedAria2Options);
+  next.windowBounds = normalizeWindowBounds(next.windowBounds);
 
   return next;
+}
+
+function normalizeFontFamily(value: string): string {
+  const fontFamily = value.trim();
+
+  if (!fontFamily) {
+    throw new Error("字体名称不能为空。");
+  }
+
+  if (fontFamily.length > 80) {
+    throw new Error("字体名称不能超过 80 个字符。");
+  }
+
+  if (!/^[\p{L}\p{N}\s.'_-]+$/u.test(fontFamily)) {
+    throw new Error("字体名称包含不支持的字符。");
+  }
+
+  return fontFamily;
+}
+
+function normalizeWindowBounds(
+  bounds: AppSettings["windowBounds"],
+): AppSettings["windowBounds"] {
+  return {
+    x: Number.isFinite(bounds.x) ? Math.round(bounds.x!) : null,
+    y: Number.isFinite(bounds.y) ? Math.round(bounds.y!) : null,
+    width: Math.max(760, Math.round(bounds.width || 760)),
+    height: Math.max(520, Math.round(bounds.height || 520)),
+    maximized: Boolean(bounds.maximized),
+  };
 }
 
 export function normalizeRecentDirectories(

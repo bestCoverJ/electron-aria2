@@ -357,14 +357,45 @@ function FilesDetails({ task }: { task: DownloadTask }) {
         <Card className="shadow-none" key={file.index}>
           <CardContent className="p-3">
             <p className="truncate text-sm font-medium">{file.path}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatBytes(file.completedLength)} / {formatBytes(file.length)}
-            </p>
+            <dl className="mt-2 grid gap-2 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">大小</dt>
+                <dd>
+                  {formatBytes(file.completedLength)} /{" "}
+                  {formatBytes(file.length)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">类型</dt>
+                <dd>{file.type}</dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt className="text-muted-foreground">SHA-256</dt>
+                <dd
+                  className="break-all font-mono text-[11px] leading-5"
+                  title={
+                    file.sha256 ?? getHashStatusLabel(task, file.sha256Status)
+                  }
+                >
+                  {file.sha256 ?? getHashStatusLabel(task, file.sha256Status)}
+                </dd>
+              </div>
+            </dl>
           </CardContent>
         </Card>
       ))}
     </div>
   );
+}
+
+function getHashStatusLabel(
+  task: DownloadTask,
+  status: DownloadTask["files"][number]["sha256Status"],
+): string {
+  if (task.state !== "completed") return "任务完成后计算";
+  if (status === "calculating" || status === "pending") return "正在计算…";
+  if (status === "unavailable") return "文件不可访问，无法计算";
+  return "尚无校验信息";
 }
 
 function PeersDetails({ task }: { task: DownloadTask }) {

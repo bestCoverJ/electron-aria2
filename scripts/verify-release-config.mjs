@@ -14,6 +14,10 @@ const preloadSource = await readFile(
   new URL("src/preload/index.ts", root),
   "utf8",
 );
+const afterPackSource = await readFile(
+  new URL("scripts/after-pack.cjs", root),
+  "utf8",
+);
 const workflow = await readFile(
   new URL(".github/workflows/main.yml", root),
   "utf8",
@@ -97,8 +101,29 @@ expect(
   "Windows resources must be edited after packaging",
 );
 expect(
+  packageJson.build?.win?.icon === "resources/assets/icons/tide-logo.ico" &&
+    packageJson.build?.nsis?.installerIcon ===
+      "resources/assets/icons/tide-logo.ico" &&
+    packageJson.build?.nsis?.uninstallerIcon ===
+      "resources/assets/icons/tide-logo.ico" &&
+    packageJson.build?.nsis?.shortcutName === "TideX",
+  "Windows executable, installer, uninstaller, and shortcut must use TideX branding",
+);
+expect(
+  afterPackSource.includes("icon,") &&
+    afterPackSource.includes('"tide-logo.ico"'),
+  "unsigned local packaging must write the TideX icon into the executable",
+);
+expect(
   appEntrySource.includes('app.setName("TideX")'),
   "runtime app name must be TideX",
+);
+expect(
+  appEntrySource.includes("getRestoredFullBounds") &&
+    appEntrySource.includes("scheduleWindowBoundsSave") &&
+    appEntrySource.includes("getNormalBounds()") &&
+    appEntrySource.includes("screen.getDisplayMatching"),
+  "normal window bounds must persist and restore within a visible display",
 );
 expect(
   appEntrySource.includes('"tide-x"'),
