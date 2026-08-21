@@ -8,6 +8,7 @@ import type {
 import type { Aria2Runtime } from "../services/aria2";
 import type { DownloadManager } from "../services/downloads";
 import type { AppStore } from "../services/persistence";
+import type { ApplicationUpdater } from "../services/updates";
 import { ipcChannels } from "./channels";
 import { createEmptyTaskSnapshot } from "../services/app-state";
 
@@ -15,6 +16,7 @@ export function registerIpcHandlers(
   runtime: Aria2Runtime,
   store: AppStore,
   downloads: DownloadManager,
+  applicationUpdater: ApplicationUpdater,
   windowControls: {
     enterCompactMode(): void;
     exitCompactMode(): void;
@@ -58,6 +60,17 @@ export function registerIpcHandlers(
   );
 
   ipcMain.handle(ipcChannels.runtimeGetStatus, () => runtime.getStatus());
+
+  ipcMain.handle(ipcChannels.updatesGetSnapshot, () =>
+    applicationUpdater.getSnapshot(),
+  );
+  ipcMain.handle(ipcChannels.updatesCheck, () => applicationUpdater.check());
+  ipcMain.handle(ipcChannels.updatesDownload, () =>
+    applicationUpdater.download(),
+  );
+  ipcMain.handle(ipcChannels.updatesInstall, () =>
+    applicationUpdater.install(),
+  );
 
   ipcMain.handle(ipcChannels.downloadsSelectTaskFile, async () => {
     const result = await dialog.showOpenDialog({

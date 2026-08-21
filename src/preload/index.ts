@@ -4,6 +4,7 @@ import type {
   AddDownloadBatchInput,
   AddDownloadInput,
   AppSettings,
+  ApplicationUpdateSnapshot,
   SelectDirectoryOptions,
   TideApi,
 } from "@shared/types";
@@ -24,6 +25,23 @@ const tideApi: TideApi = {
   },
   runtime: {
     getStatus: () => ipcRenderer.invoke(ipcChannels.runtimeGetStatus),
+  },
+  updates: {
+    getSnapshot: () => ipcRenderer.invoke(ipcChannels.updatesGetSnapshot),
+    check: () => ipcRenderer.invoke(ipcChannels.updatesCheck),
+    download: () => ipcRenderer.invoke(ipcChannels.updatesDownload),
+    install: () => ipcRenderer.invoke(ipcChannels.updatesInstall),
+    onStatusChanged: (
+      listener: (snapshot: ApplicationUpdateSnapshot) => void,
+    ) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        snapshot: ApplicationUpdateSnapshot,
+      ): void => listener(snapshot);
+      ipcRenderer.on(ipcChannels.updatesStatusChanged, handler);
+      return () =>
+        ipcRenderer.removeListener(ipcChannels.updatesStatusChanged, handler);
+    },
   },
   downloads: {
     selectTaskFile: () =>

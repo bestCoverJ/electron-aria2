@@ -6,11 +6,13 @@ import { DesktopIntegration } from "./services/desktop";
 import { getAppIconPath } from "./services/desktop/tray-icon";
 import { DownloadManager } from "./services/downloads";
 import { AppStore } from "./services/persistence";
+import { ApplicationUpdater } from "./services/updates";
 
 installBrokenPipeGuards();
 
 let mainWindow: BrowserWindow | null = null;
 const aria2Runtime = new Aria2Runtime();
+const applicationUpdater = new ApplicationUpdater();
 let desktopIntegration: DesktopIntegration | null = null;
 let isRecreatingWindow = false;
 let isQuitFinalized = false;
@@ -153,7 +155,7 @@ app.whenReady().then(async () => {
   const appStore = new AppStore();
   nativeTheme.themeSource = appStore.getSettings().theme;
   const downloads = new DownloadManager(aria2Runtime, appStore);
-  registerIpcHandlers(aria2Runtime, appStore, downloads, {
+  registerIpcHandlers(aria2Runtime, appStore, downloads, applicationUpdater, {
     enterCompactMode,
     exitCompactMode,
   });
@@ -165,6 +167,7 @@ app.whenReady().then(async () => {
   );
   desktopIntegration.initialize();
   createMainWindow();
+  applicationUpdater.scheduleAutomaticCheck();
 
   app.on("second-instance", () => {
     if (mainWindow?.isMinimized()) {
@@ -194,6 +197,7 @@ app.on("before-quit", (event) => {
   }
 
   event.preventDefault();
+  applicationUpdater.dispose();
   desktopIntegration?.beginQuit();
   void aria2Runtime.shutdown().finally(() => {
     isQuitFinalized = true;

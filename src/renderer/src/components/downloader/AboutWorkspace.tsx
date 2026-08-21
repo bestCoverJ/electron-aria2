@@ -1,9 +1,33 @@
-import { ShieldCheck } from "lucide-react";
-import type { ReactElement } from "react";
+import { Download, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
+import { useEffect, useState, type ReactElement } from "react";
+import type { ApplicationUpdateSnapshot } from "@shared/types";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import packageJson from "../../../../../package.json";
 import appIconUrl from "../../../../../resources/assets/icons/tide-logo.png?url";
 
 const appVersion = packageJson.version;
+
+const initialUpdateSnapshot: ApplicationUpdateSnapshot = {
+  currentVersion: appVersion,
+  phase: "idle",
+  availableVersion: null,
+  downloadPercent: null,
+  transferredBytes: null,
+  totalBytes: null,
+  errorMessage: null,
+};
+
+const updateLabels: Record<ApplicationUpdateSnapshot["phase"], string> = {
+  disabled: "开发模式不检查更新",
+  idle: "尚未检查更新",
+  checking: "正在检查更新…",
+  available: "发现新版本",
+  "not-available": "已是最新版本",
+  downloading: "正在下载更新…",
+  downloaded: "更新已就绪",
+  error: "更新操作失败",
+};
 
 const openSourceItems = [
   {
@@ -51,6 +75,40 @@ const openSourceItems = [
 ];
 
 export function AboutWorkspace(): ReactElement {
+  const updatesApi = window.tide?.updates;
+  const [update, setUpdate] = useState(initialUpdateSnapshot);
+  const [actionPending, setActionPending] = useState(false);
+
+  useEffect(() => {
+    if (!updatesApi) {
+      setUpdate((snapshot) => ({ ...snapshot, phase: "disabled" }));
+      return;
+    }
+
+    let active = true;
+    void updatesApi.getSnapshot().then((snapshot) => {
+      if (active) setUpdate(snapshot);
+    });
+    const unsubscribe = updatesApi.onStatusChanged((snapshot) => {
+      if (active) setUpdate(snapshot);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [updatesApi]);
+
+  const runUpdateAction = async (
+    action: () => Promise<ApplicationUpdateSnapshot>,
+  ): Promise<void> => {
+    setActionPending(true);
+    try {
+      setUpdate(await action());
+    } finally {
+      setActionPending(false);
+    }
+  };
+
   return (
     <div className="min-h-0 flex-1 overflow-auto px-4 py-4 min-[1040px]:px-5">
       <div className="mx-auto grid max-w-5xl gap-4 min-[1040px]:gap-5">
@@ -84,6 +142,68 @@ export function AboutWorkspace(): ReactElement {
               </span>
             </div>
           </div>
+        </section>
+
+        <section className="rounded-md border bg-white/80 p-4 shadow-sm dark:bg-card/80 min-[1040px]:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold">应用更新</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {updateLabels[update.phase]}
+                {update.availableVersion
+                  ? ` · 新版本 ${update.availableVersion}`
+                  : ""}
+              </p>
+            </div>
+            {update.phase === "available" ? (
+              <Button
+                disabled={actionPending}
+                onClick={() =>
+                  void runUpdateAction(() => updatesApi!.download())
+                }
+                size="sm"
+              >
+                <Download size={14} />
+                下载更新
+              </Button>
+            ) : update.phase === "downloaded" ? (
+              <Button onClick={() => void updatesApi?.install()} size="sm">
+                <RotateCcw size={14} />
+                重启并安装
+              </Button>
+            ) : (
+              <Button
+                disabled={
+                  actionPending ||
+                  update.phase === "disabled" ||
+                  update.phase === "checking" ||
+                  update.phase === "downloading"
+                }
+                onClick={() => void runUpdateAction(() => updatesApi!.check())}
+                size="sm"
+                variant="outline"
+              >
+                <RefreshCw
+                  className={update.phase === "checking" ? "animate-spin" : ""}
+                  size={14}
+                />
+                检查更新
+              </Button>
+            )}
+          </div>
+          {update.phase === "downloading" ? (
+            <div className="mt-4">
+              <Progress value={update.downloadPercent ?? 0} />
+              <p className="mt-1.5 text-right text-xs text-muted-foreground">
+                {(update.downloadPercent ?? 0).toFixed(1)}%
+              </p>
+            </div>
+          ) : null}
+          {update.errorMessage ? (
+            <p className="mt-3 text-xs text-destructive" role="alert">
+              {update.errorMessage}
+            </p>
+          ) : null}
         </section>
 
         <section className="rounded-md border bg-white/80 p-4 shadow-sm dark:bg-card/80 min-[1040px]:p-5">

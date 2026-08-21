@@ -10,7 +10,9 @@
     "dev": "electron-vite dev",
     "build": "pnpm run typecheck && electron-vite build",
     "pack": "pnpm run build && electron-builder --dir",
+    "pack:unsigned": "pnpm run build && electron-builder --dir --config.win.signAndEditExecutable=false",
     "dist": "pnpm run build && electron-builder",
+    "dist:publish": "pnpm run build && electron-builder --publish always",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --pretty && tsc --noEmit -p tsconfig.web.json --pretty",
     "lint": "eslint . --max-warnings=0",
@@ -18,6 +20,8 @@
     "verify:downloads": "node scripts/verify-download-flows.mjs",
     "verify:sources": "node --experimental-strip-types scripts/verify-download-sources.mjs",
     "verify:ui": "node scripts/verify-ui-contracts.mjs",
+    "verify:release": "node scripts/verify-release-config.mjs",
+    "verify:release-tag": "node scripts/verify-release-tag.mjs",
     "website:dev": "pnpm --dir website run dev",
     "website:build": "pnpm --dir website run build",
     "website:preview": "pnpm --dir website run preview"
@@ -28,6 +32,7 @@
     "@radix-ui/react-slot": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.9",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -66,7 +71,10 @@
       "output": "dist-electron"
     },
     "publish": {
-      "provider": "github"
+      "provider": "github",
+      "owner": "${env.GH_OWNER}",
+      "repo": "${env.GH_REPO}",
+      "releaseType": "draft"
     },
     "electronDist": "node_modules/electron/dist",
     "files": [
@@ -99,7 +107,6 @@
         "nsis",
         "zip"
       ],
-      "signAndEditExecutable": false,
       "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
     },
     "mac": {

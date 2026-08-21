@@ -4,6 +4,26 @@ export type ShutdownBehavior = "ask" | "minimize-to-tray" | "quit";
 
 export type RuntimeAvailability = "starting" | "ready" | "unavailable";
 
+export type ApplicationUpdatePhase =
+  | "disabled"
+  | "idle"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "error";
+
+export interface ApplicationUpdateSnapshot {
+  currentVersion: string;
+  phase: ApplicationUpdatePhase;
+  availableVersion: string | null;
+  downloadPercent: number | null;
+  transferredBytes: number | null;
+  totalBytes: number | null;
+  errorMessage: string | null;
+}
+
 export type DownloadSourceKind =
   | "http"
   | "ftp"
@@ -164,6 +184,15 @@ export interface TideApi {
   };
   runtime: {
     getStatus(): Promise<RuntimeStatus>;
+  };
+  updates: {
+    getSnapshot(): Promise<ApplicationUpdateSnapshot>;
+    check(): Promise<ApplicationUpdateSnapshot>;
+    download(): Promise<ApplicationUpdateSnapshot>;
+    install(): Promise<void>;
+    onStatusChanged(
+      listener: (snapshot: ApplicationUpdateSnapshot) => void,
+    ): () => void;
   };
   downloads: {
     selectTaskFile(): Promise<SelectTaskFileResult>;
