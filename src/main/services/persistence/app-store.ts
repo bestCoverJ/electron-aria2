@@ -1,4 +1,8 @@
-import type { AppSettings, DownloadTaskMetadata } from "@shared/types";
+import type {
+  AppSettings,
+  DownloadTask,
+  DownloadTaskMetadata,
+} from "@shared/types";
 import { app } from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -71,6 +75,42 @@ export class AppStore {
     this.state = {
       ...this.state,
       taskMetadata: current,
+    };
+    this.writeState();
+  }
+
+  persistTaskSnapshot(task: DownloadTask): void {
+    const existing = this.state.taskMetadata[task.gid];
+
+    if (!existing) {
+      return;
+    }
+
+    const persistedTask = {
+      ...task,
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      connections: 0,
+      remainingSeconds: null,
+      logLines: [...task.logLines],
+    };
+    const currentComparable = existing.persistedTask
+      ? { ...existing.persistedTask, updatedAt: persistedTask.updatedAt }
+      : null;
+
+    if (
+      currentComparable &&
+      JSON.stringify(currentComparable) === JSON.stringify(persistedTask)
+    ) {
+      return;
+    }
+
+    this.state = {
+      ...this.state,
+      taskMetadata: {
+        ...this.state.taskMetadata,
+        [task.gid]: { ...existing, persistedTask },
+      },
     };
     this.writeState();
   }

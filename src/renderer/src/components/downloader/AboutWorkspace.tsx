@@ -16,6 +16,7 @@ const initialUpdateSnapshot: ApplicationUpdateSnapshot = {
   transferredBytes: null,
   totalBytes: null,
   errorMessage: null,
+  errorCode: null,
 };
 
 const updateLabels: Record<ApplicationUpdateSnapshot["phase"], string> = {
@@ -121,7 +122,7 @@ export function AboutWorkspace(): ReactElement {
             src={appIconUrl}
           />
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold">Tide X</h2>
+            <h2 className="text-lg font-semibold">TideX</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
               基于 aria2 的桌面下载管理器，支持
               HTTP/HTTPS、FTP/SFTP、Magnet、torrent、 Metalink 及经典
@@ -135,7 +136,7 @@ export function AboutWorkspace(): ReactElement {
                 版本 {appVersion}
               </span>
               <span className="rounded-md border bg-background px-2.5 py-1">
-                产品名称 Tide X
+                产品名称 TideX
               </span>
               <span className="rounded-md border bg-background px-2.5 py-1">
                 应用标识 com.tidex.downloads
@@ -201,6 +202,7 @@ export function AboutWorkspace(): ReactElement {
           ) : null}
           {update.errorMessage ? (
             <p className="mt-3 text-xs text-destructive" role="alert">
+              {update.errorCode ? `${update.errorCode}：` : ""}
               {update.errorMessage}
             </p>
           ) : null}

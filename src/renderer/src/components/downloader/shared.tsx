@@ -7,6 +7,7 @@ import {
   Plus,
   RefreshCw,
   X,
+  Trash2,
 } from "lucide-react";
 import type { ReactElement } from "react";
 import { useEffect, useRef } from "react";
@@ -313,6 +314,7 @@ export function DirectoryField({
   onBrowse,
   onChange,
   onError,
+  onRemoveRecentDirectory,
   recentDirectories,
   value,
 }: {
@@ -320,6 +322,7 @@ export function DirectoryField({
   onBrowse: ReturnType<typeof useDownloads>["actions"]["selectDirectory"];
   onChange: (value: string) => void;
   onError?: (message: string) => void;
+  onRemoveRecentDirectory?: (directory: string) => Promise<void> | void;
   recentDirectories: string[];
   value: string;
 }) {
@@ -362,11 +365,28 @@ export function DirectoryField({
           <DropdownMenuContent align="end" className="w-80">
             {directories.map((directory) => (
               <DropdownMenuItem
-                className="max-w-80"
+                className="flex max-w-80 gap-2"
                 key={directory}
                 onClick={() => onChange(directory)}
               >
-                <span className="truncate">{directory}</span>
+                <span className="min-w-0 flex-1 truncate">{directory}</span>
+                {onRemoveRecentDirectory && directory !== value ? (
+                  <Button
+                    aria-label={`删除最近目录 ${directory}`}
+                    className="size-7 shrink-0"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void onRemoveRecentDirectory(directory);
+                    }}
+                    size="icon"
+                    title="删除记录"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2 aria-hidden="true" size={14} />
+                  </Button>
+                ) : null}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

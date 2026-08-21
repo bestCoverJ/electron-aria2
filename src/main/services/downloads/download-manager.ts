@@ -251,6 +251,23 @@ export class DownloadManager {
     const results = await Promise.allSettled(
       completed.map((task) => this.remove(task.gid, { removeFiles: false })),
     );
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        this.store.removeTaskMetadata(completed[index].gid);
+      }
+    });
+
+    const rawGids = new Set(tasks.map((task) => task.gid));
+    for (const metadata of this.store.listTaskMetadata()) {
+      const isRestoredCompleted =
+        !rawGids.has(metadata.gid) &&
+        (metadata.persistedTask?.state === "completed" ||
+          metadata.logLines.some((line) => line.includes("下载完成。")));
+
+      if (isRestoredCompleted) {
+        this.store.removeTaskMetadata(metadata.gid);
+      }
+    }
     throwIfBatchFailed(results, "删除", "已完成任务");
   }
 
@@ -306,11 +323,22 @@ export class DownloadManager {
     this.migrateFollowedTaskMetadata(migrations);
     this.observeTaskLogs(visibleTasks);
 
-    return createTaskSnapshot(
+    const snapshot = createTaskSnapshot(
       visibleTasks,
       this.store.listTaskMetadata(),
       this.runtime.getStatus(),
     );
+    for (const task of snapshot.tasks) {
+      if (
+        task.state === "completed" ||
+        task.state === "failed" ||
+        task.state === "removed"
+      ) {
+        this.store.persistTaskSnapshot(task);
+      }
+    }
+
+    return snapshot;
   }
 
   private migrateFollowedTaskMetadata(

@@ -19,7 +19,7 @@ export class DesktopIntegration {
 
   initialize(): void {
     if (process.platform === "win32") {
-      app.setAppUserModelId("com.tidex.app");
+      app.setAppUserModelId("com.tidex.downloads");
     }
 
     this.createTray();
@@ -44,10 +44,10 @@ export class DesktopIntegration {
     if (behavior === "ask") {
       const options: Electron.MessageBoxOptions = {
         type: "question",
-        title: "关闭 Tide X",
+        title: "关闭 TideX",
         message: "关闭窗口后要继续在后台下载吗？",
-        detail: "选择后台运行会保留托盘图标；选择退出会停止 Tide X。",
-        buttons: ["后台运行", "退出 Tide X", "取消"],
+        detail: "选择后台运行会保留托盘图标；选择退出会停止 TideX。",
+        buttons: ["后台运行", "退出 TideX", "取消"],
         defaultId: 0,
         cancelId: 2,
         checkboxLabel: "记住我的选择",
@@ -90,7 +90,7 @@ export class DesktopIntegration {
 
   private createTray(): void {
     this.tray = new Tray(createTrayIcon());
-    this.tray.setToolTip("Tide X");
+    this.tray.setToolTip("TideX");
     this.tray.on("double-click", () => this.showWindow());
     this.updateTrayMenu();
   }
@@ -106,7 +106,7 @@ export class DesktopIntegration {
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         {
-          label: "显示 Tide X",
+          label: "显示 TideX",
           click: () => this.showWindow(),
         },
         {
@@ -128,7 +128,7 @@ export class DesktopIntegration {
         },
         { type: "separator" },
         {
-          label: "退出 Tide X",
+          label: "退出 TideX",
           click: () => this.quit(),
         },
       ]),
@@ -187,7 +187,7 @@ export class DesktopIntegration {
     }
 
     new Notification({
-      title: "Tide X",
+      title: "TideX",
       body: "已最小化到托盘，下载任务会继续运行。",
     }).show();
   }

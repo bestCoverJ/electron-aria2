@@ -22,6 +22,7 @@ export interface ApplicationUpdateSnapshot {
   transferredBytes: number | null;
   totalBytes: number | null;
   errorMessage: string | null;
+  errorCode: string | null;
 }
 
 export type DownloadSourceKind =
@@ -53,6 +54,7 @@ export interface AppSettings {
   proxyUrl: string | null;
   theme: ThemePreference;
   shutdownBehavior: ShutdownBehavior;
+  sidebarCollapsed: boolean;
   advancedAria2Options: Record<string, string>;
 }
 
@@ -66,6 +68,7 @@ export interface DownloadTaskMetadata {
   removeFilesOnDelete: boolean;
   createdAt: string;
   updatedAt: string;
+  persistedTask?: DownloadTask;
 }
 
 export interface RuntimeStatus {

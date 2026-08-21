@@ -93,7 +93,7 @@ export function getViewTitle(view: MainView): string {
     history: "历史记录",
     trash: "垃圾箱",
     settings: "设置",
-    about: "关于 Tide X",
+    about: "关于 TideX",
   };
 
   return labels[view];

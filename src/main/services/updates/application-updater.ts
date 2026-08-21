@@ -2,6 +2,14 @@ import { app, BrowserWindow } from "electron";
 import electronUpdater, { type AppUpdater } from "electron-updater";
 import { ipcChannels } from "@shared/ipc";
 import type { ApplicationUpdateSnapshot } from "@shared/types";
+import {
+  appendFileSync,
+  mkdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
 
 const AUTO_CHECK_DELAY_MS = 10_000;
 const { autoUpdater } = electronUpdater;
@@ -21,6 +29,7 @@ export class ApplicationUpdater {
       transferredBytes: null,
       totalBytes: null,
       errorMessage: null,
+      errorCode: null,
     };
 
     this.updater.autoDownload = false;
@@ -45,8 +54,16 @@ export class ApplicationUpdater {
 
   async check(): Promise<ApplicationUpdateSnapshot> {
     this.assertPackaged();
-    this.updateSnapshot({ phase: "checking", errorMessage: null });
-    await this.updater.checkForUpdates();
+    this.updateSnapshot({
+      phase: "checking",
+      errorMessage: null,
+      errorCode: null,
+    });
+    try {
+      await this.updater.checkForUpdates();
+    } catch (caught) {
+      throw this.createPublicError(caught);
+    }
     return this.getSnapshot();
   }
 
@@ -56,8 +73,16 @@ export class ApplicationUpdater {
       throw new Error("当前没有可下载的更新。");
     }
 
-    this.updateSnapshot({ phase: "downloading", errorMessage: null });
-    await this.updater.downloadUpdate();
+    this.updateSnapshot({
+      phase: "downloading",
+      errorMessage: null,
+      errorCode: null,
+    });
+    try {
+      await this.updater.downloadUpdate();
+    } catch (caught) {
+      throw this.createPublicError(caught);
+    }
     return this.getSnapshot();
   }
 
@@ -85,7 +110,11 @@ export class ApplicationUpdater {
 
   private bindEvents(): void {
     this.updater.on("checking-for-update", () => {
-      this.updateSnapshot({ phase: "checking", errorMessage: null });
+      this.updateSnapshot({
+        phase: "checking",
+        errorMessage: null,
+        errorCode: null,
+      });
     });
     this.updater.on("update-available", (info) => {
       this.updateSnapshot({
@@ -95,6 +124,7 @@ export class ApplicationUpdater {
         transferredBytes: null,
         totalBytes: null,
         errorMessage: null,
+        errorCode: null,
       });
     });
     this.updater.on("update-not-available", () => {
@@ -105,6 +135,7 @@ export class ApplicationUpdater {
         transferredBytes: null,
         totalBytes: null,
         errorMessage: null,
+        errorCode: null,
       });
     });
     this.updater.on("download-progress", (progress) => {
@@ -121,11 +152,28 @@ export class ApplicationUpdater {
         availableVersion: info.version,
         downloadPercent: 100,
         errorMessage: null,
+        errorCode: null,
       });
     });
     this.updater.on("error", (error) => {
-      this.updateSnapshot({ phase: "error", errorMessage: error.message });
+      this.recordError(error);
     });
+  }
+
+  private createPublicError(caught: unknown): Error {
+    const updateError = this.recordError(toError(caught));
+    return new Error(`${updateError.code}：${updateError.message}`);
+  }
+
+  private recordError(error: Error): { code: string; message: string } {
+    const updateError = classifyUpdateError(error);
+    writeUpdateErrorLog(updateError.code, error);
+    this.updateSnapshot({
+      phase: "error",
+      errorCode: updateError.code,
+      errorMessage: updateError.message,
+    });
+    return updateError;
   }
 
   private updateSnapshot(patch: Partial<ApplicationUpdateSnapshot>): void {
@@ -138,5 +186,51 @@ export class ApplicationUpdater {
         );
       }
     }
+  }
+}
+
+function toError(caught: unknown): Error {
+  return caught instanceof Error ? caught : new Error(String(caught));
+}
+
+function classifyUpdateError(error: Error): { code: string; message: string } {
+  const detail = error.message.toLowerCase();
+  if (detail.includes("latest.yml") || detail.includes("404")) {
+    return { code: "UPD-002", message: "更新文件尚未发布，请稍后重试。" };
+  }
+  if (/enotfound|econn|network|timeout/.test(detail)) {
+    return { code: "UPD-001", message: "无法连接更新服务，请检查网络后重试。" };
+  }
+  if (/signature|certificate|sha512|checksum/.test(detail)) {
+    return { code: "UPD-004", message: "更新包验证失败，请等待新版本发布。" };
+  }
+  if (/download|write|disk|space/.test(detail)) {
+    return {
+      code: "UPD-003",
+      message: "更新包下载失败，请检查磁盘空间后重试。",
+    };
+  }
+  return { code: "UPD-005", message: "更新服务暂时不可用，请稍后重试。" };
+}
+
+function writeUpdateErrorLog(code: string, error: Error): void {
+  try {
+    const logPath = join(app.getPath("userData"), "logs", "updater.log");
+    mkdirSync(dirname(logPath), { recursive: true });
+    try {
+      if (statSync(logPath).size >= 1024 * 1024) {
+        rmSync(`${logPath}.1`, { force: true });
+        renameSync(logPath, `${logPath}.1`);
+      }
+    } catch {
+      // The first log entry has no existing file to rotate.
+    }
+    appendFileSync(
+      logPath,
+      `[${new Date().toISOString()}] ${code} ${error.stack ?? error.message}\n`,
+      "utf8",
+    );
+  } catch {
+    // Logging failure must never interrupt the updater or application startup.
   }
 }

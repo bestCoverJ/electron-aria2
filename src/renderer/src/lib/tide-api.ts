@@ -1,7 +1,7 @@
 import type { TideApi } from "@shared/types";
 
 const missingApiMessage =
-  "下载服务暂不可用，请确认 Tide X 桌面服务已正常启动后重试。";
+  "下载服务暂不可用，请确认 TideX 桌面服务已正常启动后重试。";
 
 export function getTideApi(): TideApi {
   const api = window.tide;

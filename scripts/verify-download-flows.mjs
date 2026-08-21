@@ -128,6 +128,7 @@ try {
   }
 
   await verifySettingsPersistenceContract();
+  await verifyHistoryPersistenceContract();
 
   console.log(
     "download flow verification passed: add, custom file name, pause, resume, remove, complete, fail, remote Metalink follow, restart recovery",
@@ -138,6 +139,35 @@ try {
   }
   await httpServer.close();
   await removeWithRetry(workspace);
+}
+
+async function verifyHistoryPersistenceContract() {
+  const storeSource = await readFile(
+    "src/main/services/persistence/app-store.ts",
+    "utf8",
+  );
+  const managerSource = await readFile(
+    "src/main/services/downloads/download-manager.ts",
+    "utf8",
+  );
+  const projectionSource = await readFile(
+    "src/main/services/downloads/task-projection.ts",
+    "utf8",
+  );
+  const requiredSnippets = [
+    [storeSource, "persistTaskSnapshot(task"],
+    [managerSource, "this.store.persistTaskSnapshot(task)"],
+    [managerSource, "isRestoredCompleted"],
+    [projectionSource, "restorePersistedTask"],
+    [projectionSource, "metadata.persistedTask"],
+    [projectionSource, 'line.includes("下载完成。")'],
+  ];
+
+  for (const [source, snippet] of requiredSnippets) {
+    if (!source.includes(snippet)) {
+      throw new Error(`History persistence contract is missing: ${snippet}`);
+    }
+  }
 }
 
 async function startAria2(directory) {

@@ -92,7 +92,7 @@ export function WorkspacePanel({
           setQuery={setQuery}
           setStatusFilter={setStatusFilter}
           statusFilter={statusFilter}
-          title="关于 Tide X"
+          title="关于 TideX"
           variant="about"
           compact={false}
         />

@@ -148,7 +148,7 @@ const checks = [
     name: "Single-task removal defaults to preserving downloaded files",
     pass:
       uiSource.includes("同时删除已下载文件") &&
-      uiSource.includes("默认仅从 Tide X 中移除任务") &&
+      uiSource.includes("默认仅从 TideX 中移除任务") &&
       uiSource.includes("删除任务和文件") &&
       uiSource.includes("remove(task.gid, removeFiles)"),
   },

@@ -160,7 +160,7 @@ export function useDownloads() {
 
         if (!selectTaskFile) {
           throw new Error(
-            "任务文件选择服务暂不可用，请确认正在 Tide X 桌面窗口中运行。",
+            "任务文件选择服务暂不可用，请确认正在 TideX 桌面窗口中运行。",
           );
         }
 
@@ -171,7 +171,7 @@ export function useDownloads() {
 
         if (!selectTaskFiles) {
           throw new Error(
-            "多文件选择服务暂不可用，请确认正在 Tide X 桌面窗口中运行。",
+            "多文件选择服务暂不可用，请确认正在 TideX 桌面窗口中运行。",
           );
         }
 
@@ -184,7 +184,7 @@ export function useDownloads() {
 
         if (!selectDirectory) {
           throw new Error(
-            "文件夹选择服务暂不可用，请确认正在 Tide X 桌面窗口中运行。",
+            "文件夹选择服务暂不可用，请确认正在 TideX 桌面窗口中运行。",
           );
         }
 

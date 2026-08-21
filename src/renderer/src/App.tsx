@@ -28,6 +28,10 @@ export function App(): ReactElement {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
+  useEffect(() => {
+    if (settings) setIsSidebarCollapsed(settings.sidebarCollapsed);
+  }, [settings?.sidebarCollapsed]);
+
   const visibleTasks = useMemo(
     () => getVisibleTasks(snapshot.tasks, activeView, query, statusFilter),
     [activeView, query, snapshot.tasks, statusFilter],
@@ -95,9 +99,11 @@ export function App(): ReactElement {
             setSelectedGid(null);
             setDetailTab("overview");
           }}
-          onToggleCollapsed={() =>
-            setIsSidebarCollapsed((collapsed) => !collapsed)
-          }
+          onToggleCollapsed={() => {
+            const sidebarCollapsed = !isSidebarCollapsed;
+            setIsSidebarCollapsed(sidebarCollapsed);
+            void actions.updateSettings({ sidebarCollapsed });
+          }}
         />
 
         <WorkspacePanel
@@ -134,6 +140,13 @@ export function App(): ReactElement {
         <AddDownloadDialog
           defaultDirectory={settings?.downloadDirectory ?? ""}
           recentDirectories={settings?.recentDownloadDirectories ?? []}
+          onRemoveRecentDirectory={async (directory) => {
+            await actions.updateSettings({
+              recentDownloadDirectories: (
+                settings?.recentDownloadDirectories ?? []
+              ).filter((item) => item !== directory),
+            });
+          }}
           onClose={() => setIsAddOpen(false)}
           onSelectDirectory={actions.selectDirectory}
           onSelectTaskFiles={actions.selectTaskFiles}

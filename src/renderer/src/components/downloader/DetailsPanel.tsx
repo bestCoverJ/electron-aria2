@@ -252,7 +252,7 @@ function RemoveTaskDialog({
               className="mt-1 text-xs leading-5 text-muted-foreground"
               id="remove-task-files-help"
             >
-              默认仅从 Tide X 中移除任务，磁盘文件会保留。
+              默认仅从 TideX 中移除任务，磁盘文件会保留。
             </p>
           </div>
           <Switch

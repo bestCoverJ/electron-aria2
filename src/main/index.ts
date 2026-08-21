@@ -8,6 +8,8 @@ import { DownloadManager } from "./services/downloads";
 import { AppStore } from "./services/persistence";
 import { ApplicationUpdater } from "./services/updates";
 
+app.setPath("userData", join(app.getPath("appData"), "tide-x"));
+app.setName("TideX");
 installBrokenPipeGuards();
 
 let mainWindow: BrowserWindow | null = null;
@@ -41,7 +43,7 @@ function createMainWindow(
     y: "y" in bounds ? bounds.y : undefined,
     minWidth: isCompact ? 360 : 760,
     minHeight: isCompact ? 200 : 520,
-    title: "Tide X",
+    title: "TideX",
     icon: getAppIconPath(),
     autoHideMenuBar: true,
     frame: !isCompact,

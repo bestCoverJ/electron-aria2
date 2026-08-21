@@ -12,6 +12,7 @@ export function createDefaultSettings(): AppSettings {
     proxyUrl: null,
     theme: "system",
     shutdownBehavior: "ask",
+    sidebarCollapsed: true,
     advancedAria2Options: {},
   };
 }

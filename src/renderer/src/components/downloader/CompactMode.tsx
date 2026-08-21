@@ -39,7 +39,7 @@ export function CompactMode({
               <Download aria-hidden="true" />
             </div>
             <div>
-              <p className="text-sm font-semibold">Tide X</p>
+              <p className="text-sm font-semibold">TideX</p>
               <p className="text-xs text-muted-foreground">双击恢复完整模式</p>
             </div>
           </div>

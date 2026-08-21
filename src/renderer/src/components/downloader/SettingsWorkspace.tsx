@@ -81,7 +81,7 @@ export function SettingsWorkspace({
             </label>
             <label className="grid gap-2">
               <span className="text-xs font-medium">本地监听端口</span>
-              <Input disabled value="6800（由 Tide X 管理）" />
+              <Input disabled value="6800（由 TideX 管理）" />
             </label>
             <NumberField
               label="单任务最大连接数"
@@ -101,6 +101,14 @@ export function SettingsWorkspace({
                 setDraft({ ...draft, downloadDirectory })
               }
               onError={(message) => setError(message)}
+              onRemoveRecentDirectory={async (directory) => {
+                const recentDownloadDirectories =
+                  draft.recentDownloadDirectories.filter(
+                    (item) => item !== directory,
+                  );
+                setDraft({ ...draft, recentDownloadDirectories });
+                await actions.updateSettings({ recentDownloadDirectories });
+              }}
               recentDirectories={draft.recentDownloadDirectories}
               value={draft.downloadDirectory}
             />
@@ -150,12 +158,12 @@ export function SettingsWorkspace({
                     <SelectItem value="minimize-to-tray">
                       最小化到托盘
                     </SelectItem>
-                    <SelectItem value="quit">直接退出 Tide X</SelectItem>
+                    <SelectItem value="quit">直接退出 TideX</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>
               <p className="text-xs leading-5 text-muted-foreground">
-                后台运行时下载任务会继续，仍可从系统托盘打开 Tide X。
+                后台运行时下载任务会继续，仍可从系统托盘打开 TideX。
               </p>
             </div>
           </SettingsGroup>

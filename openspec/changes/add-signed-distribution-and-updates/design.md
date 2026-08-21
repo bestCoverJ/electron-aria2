@@ -23,11 +23,11 @@
 2. 更新服务位于主进程，维护 `idle/checking/available/not-available/downloading/downloaded/error` 快照。preload 只暴露检查、下载、安装和订阅方法，不向渲染进程暴露 Electron 对象。
 3. 更新采用用户可控流程：打包版延迟自动检查，发现版本后由用户触发下载，完成后由用户触发退出安装。这避免大文件在不知情时占用带宽。
 4. 发布流程以 `v*` tag 触发 GitHub Actions matrix，平台分别签名并向同一 draft release 上传产物。Windows 读取 `CSC_LINK`/`CSC_KEY_PASSWORD`；macOS 额外读取 Apple ID/API 凭据完成 notarization。
-5. 仓库不含任何证书或口令。CI 仅在 secrets 完整时执行正式签名；开发者可用 `CSC_IDENTITY_AUTO_DISCOVERY=false` 生成未签名本地产物。
+5. 仓库不含任何证书或口令。CI 仅在 secrets 完整时执行正式签名；默认 `pack` 明确跳过 Windows EXE 编辑/签名并生成 NSIS/ZIP 本地测试产物，`pack:dir` 仅生成解包目录，`pack:signed` 和 `dist:publish` 保留正式签名。
 
 ## Risks / Trade-offs
 
-- [GitHub 仓库所有者/名称在本地可能无法稳定推断] → 发布 CI 从 `GITHUB_REPOSITORY` 注入 `GH_OWNER`/`GH_REPO`，本地发布要求显式设置。
+- [GitHub 仓库迁移后更新源会变化] → 以 `package.json.repository` 作为 electron-builder 的单一可版本化发布地址，迁移时与 Git remote 一并修改。
 - [Windows/macOS 签名与 Apple 公证无法在无证书环境完整验收] → CI 先做配置和构建检查，正式发布前用组织 secrets 进行一次 tag 演练并验证平台签名。
 - [GitHub API 不可用时更新检查失败] → 错误只更新界面状态，不影响下载管理器主功能。
 - [Linux AppImage 的自更新支持受运行环境影响] → 仅在 updater 报告可用时提供安装，同时保留 tar.gz 手动更新产物。
@@ -41,4 +41,4 @@
 
 ## Open Questions
 
-- 正式 GitHub repository 及签名证书主体由发布维护者在 CI 上确定；实现不硬编码这些外部信息。
+- 签名证书主体仍由发布维护者在 CI secrets 中确定，仓库不存储凭据。

@@ -2,6 +2,10 @@
   "name": "tide-x",
   "version": "0.1.1",
   "description": "Cross-platform aria2 download manager",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bestCoverJ/electron-aria2.git"
+  },
   "private": true,
   "packageManager": "pnpm@10.18.3",
   "main": "./out/main/index.js",
@@ -9,8 +13,10 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "pnpm run typecheck && electron-vite build",
-    "pack": "pnpm run build && electron-builder --dir",
-    "pack:unsigned": "pnpm run build && electron-builder --dir --config.win.signAndEditExecutable=false",
+    "pack": "pnpm run build && electron-builder --win --config.win.signAndEditExecutable=false",
+    "pack:unsigned": "pnpm run pack",
+    "pack:dir": "pnpm run build && electron-builder --dir --config.win.signAndEditExecutable=false",
+    "pack:signed": "pnpm run build && electron-builder --win",
     "dist": "pnpm run build && electron-builder",
     "dist:publish": "pnpm run build && electron-builder --publish always",
     "preview": "electron-vite preview",
@@ -53,6 +59,7 @@
     "eslint": "^8.57.1",
     "postcss": "^8.4.49",
     "prettier": "^3.4.2",
+    "rcedit": "^4.0.1",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.7.2",
@@ -66,14 +73,14 @@
   },
   "build": {
     "appId": "com.tidex.downloads",
-    "productName": "Tide X",
+    "productName": "TideX",
+    "executableName": "TideX",
+    "afterPack": "scripts/after-pack.cjs",
     "directories": {
       "output": "dist-electron"
     },
     "publish": {
       "provider": "github",
-      "owner": "${env.GH_OWNER}",
-      "repo": "${env.GH_REPO}",
       "releaseType": "draft"
     },
     "electronDist": "node_modules/electron/dist",

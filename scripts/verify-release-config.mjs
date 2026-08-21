@@ -6,6 +6,10 @@ const mainSource = await readFile(
   new URL("src/main/services/updates/application-updater.ts", root),
   "utf8",
 );
+const appEntrySource = await readFile(
+  new URL("src/main/index.ts", root),
+  "utf8",
+);
 const preloadSource = await readFile(
   new URL("src/preload/index.ts", root),
   "utf8",
@@ -29,22 +33,32 @@ expect(
   "electron-builder must publish through GitHub",
 );
 expect(
-  packageJson.build?.publish?.owner === "${env.GH_OWNER}",
-  "GitHub owner must come from GH_OWNER",
-);
-expect(
-  packageJson.build?.publish?.repo === "${env.GH_REPO}",
-  "GitHub repo must come from GH_REPO",
+  packageJson.repository?.url ===
+    "https://github.com/bestCoverJ/electron-aria2.git",
+  "package repository must identify the GitHub update source",
 );
 expect(
   !("signAndEditExecutable" in (packageJson.build?.win ?? {})),
   "Windows executable signing must not be disabled",
 );
 expect(
-  packageJson.scripts?.["pack:unsigned"]?.includes(
+  packageJson.scripts?.pack?.includes("win.signAndEditExecutable=false"),
+  "default local packaging must explicitly skip Windows signing",
+);
+expect(
+  packageJson.scripts?.pack?.includes("electron-builder --win") &&
+    !packageJson.scripts.pack.includes("--dir"),
+  "default packaging must generate the configured Windows installer and archive targets",
+);
+expect(
+  packageJson.scripts?.["pack:dir"]?.includes("--dir"),
+  "directory-only packaging must remain available through pack:dir",
+);
+expect(
+  !packageJson.scripts?.["pack:signed"]?.includes(
     "win.signAndEditExecutable=false",
   ),
-  "unsigned local packaging must explicitly skip Windows signing",
+  "signed packaging must retain Windows executable signing",
 );
 expect(
   mainSource.includes("autoDownload = false"),
@@ -69,6 +83,34 @@ expect(
 expect(
   workflow.includes("verify:release-tag"),
   "release workflow must verify tag/package versions",
+);
+expect(
+  packageJson.build?.productName === "TideX",
+  "product name must be TideX",
+);
+expect(
+  packageJson.build?.executableName === "TideX",
+  "Windows executable must be TideX",
+);
+expect(
+  packageJson.build?.afterPack === "scripts/after-pack.cjs",
+  "Windows resources must be edited after packaging",
+);
+expect(
+  appEntrySource.includes('app.setName("TideX")'),
+  "runtime app name must be TideX",
+);
+expect(
+  appEntrySource.includes('"tide-x"'),
+  "legacy userData directory must remain stable",
+);
+expect(
+  mainSource.includes("UPD-002"),
+  "updater must expose stable error codes",
+);
+expect(
+  mainSource.includes('"updater.log"'),
+  "updater errors must be persisted to a log file",
 );
 
 if (failures.length) {

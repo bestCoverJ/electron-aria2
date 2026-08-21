@@ -18,9 +18,15 @@ export function createTaskSnapshot(
   runtime: RuntimeStatus,
 ): TaskSnapshot {
   const metadataByGid = new Map(metadata.map((item) => [item.gid, item]));
-  const tasks = rawTasks.map((task) =>
+  const liveTasks = rawTasks.map((task) =>
     projectTask(task, metadataByGid.get(task.gid)),
   );
+  const rawGids = new Set(rawTasks.map((task) => task.gid));
+  const restoredTasks = metadata
+    .filter((item) => !rawGids.has(item.gid))
+    .map(restorePersistedTask)
+    .filter((task): task is DownloadTask => task !== null);
+  const tasks = [...liveTasks, ...restoredTasks];
   const taskIndexByGid = new Map(
     rawTasks.map((task, index) => [task.gid, index]),
   );
@@ -44,6 +50,52 @@ export function createTaskSnapshot(
     runtime,
     capturedAt: new Date().toISOString(),
   };
+}
+
+function restorePersistedTask(
+  metadata: DownloadTaskMetadata,
+): DownloadTask | null {
+  if (metadata.persistedTask) {
+    return {
+      ...metadata.persistedTask,
+      logLines: [...metadata.logLines],
+    };
+  }
+
+  if (!metadata.logLines.some((line) => line.includes("下载完成。"))) {
+    return null;
+  }
+
+  return {
+    gid: metadata.gid,
+    source: getSafeSource(metadata.source),
+    directory: metadata.directory,
+    name: metadata.displayName ?? inferNameFromSource(metadata.source),
+    state: "completed",
+    progress: 100,
+    totalLength: null,
+    completedLength: 0,
+    downloadSpeed: 0,
+    uploadSpeed: 0,
+    connections: 0,
+    remainingSeconds: null,
+    files: [],
+    errorMessage: null,
+    logLines: [...metadata.logLines],
+    createdAt: metadata.createdAt,
+    updatedAt: metadata.updatedAt,
+  };
+}
+
+function inferNameFromSource(source: string): string {
+  const safeSource = getSafeSource(source);
+
+  try {
+    const pathname = new URL(safeSource).pathname;
+    return decodeURIComponent(pathname.split("/").at(-1) || safeSource);
+  } catch {
+    return safeSource;
+  }
 }
 
 function projectTask(

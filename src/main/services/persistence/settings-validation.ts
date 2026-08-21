@@ -112,7 +112,7 @@ function validateAdvancedOptions(options: Record<string, string>): void {
     }
 
     if (isReservedRuntimeOption(key)) {
-      throw new Error(`aria2 选项“${key}”由 Tide X 管理，不能手动修改。`);
+      throw new Error(`aria2 选项“${key}”由 TideX 管理，不能手动修改。`);
     }
 
     if (typeof value !== "string") {

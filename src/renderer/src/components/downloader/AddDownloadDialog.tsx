@@ -22,6 +22,7 @@ export function AddDownloadDialog({
   defaultDirectory,
   recentDirectories,
   onClose,
+  onRemoveRecentDirectory,
   onSelectDirectory,
   onSelectTaskFiles,
   onSubmit,
@@ -29,6 +30,7 @@ export function AddDownloadDialog({
   defaultDirectory: string;
   recentDirectories: string[];
   onClose: () => void;
+  onRemoveRecentDirectory: (directory: string) => Promise<void>;
   onSelectDirectory: ReturnType<
     typeof useDownloads
   >["actions"]["selectDirectory"];
@@ -154,6 +156,7 @@ export function AddDownloadDialog({
           label="保存目录"
           onBrowse={onSelectDirectory}
           onChange={setDirectory}
+          onRemoveRecentDirectory={onRemoveRecentDirectory}
           onError={(message) => setError(message)}
           recentDirectories={recentDirectories}
           value={directory}
